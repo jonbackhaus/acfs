@@ -491,55 +491,6 @@ _agent_check_bun() {
     return 0
 }
 
-_agent_find_am_bin() {
-    local target_home="${1:-}"
-    local primary_bin=""
-    local candidate=""
-
-    if [[ -z "$target_home" ]]; then
-        target_home="$(_agent_target_home "${TARGET_USER:-ubuntu}" 2>/dev/null || true)"
-    fi
-    [[ -n "$target_home" ]] || return 1
-
-    primary_bin="$(_agent_preferred_bin_dir "$target_home" 2>/dev/null || true)"
-    [[ -n "$primary_bin" ]] || primary_bin="$target_home/.local/bin"
-    for candidate in \
-        "$target_home/mcp_agent_mail/am" \
-        "$primary_bin/am" \
-        "$target_home/.local/bin/am" \
-        "$target_home/.gtbi/bin/am" \
-        "$target_home/.cargo/bin/am" \
-        "$target_home/.bun/bin/am" \
-        "$target_home/.atuin/bin/am" \
-        "$target_home/go/bin/am"; do
-        if [[ -x "$candidate" ]]; then
-            printf '%s\n' "$candidate"
-            return 0
-        fi
-    done
-
-
-    return 1
-}
-
-_agent_detect_am_mcp_path() {
-    local target_home="${1:-}"
-    local am_bin=""
-
-    am_bin="$(_agent_find_am_bin "$target_home" 2>/dev/null || true)"
-    if [[ -n "$am_bin" ]] && "$am_bin" --version 2>/dev/null | grep -q '^am '; then
-        printf '/mcp/\n'
-        return 0
-    fi
-
-    if [[ -n "$am_bin" ]]; then
-        printf '/api/\n'
-        return 0
-    fi
-
-    printf '/mcp/\n'
-}
-
 # Create a wrapper script that uses bun as the runtime instead of node.
 # This avoids the "node not found" error when nvm hasn't added node to PATH yet.
 # The wrapper is placed in ~/.local/bin which is early in PATH.
@@ -880,24 +831,17 @@ _configure_gemini_settings() {
     local settings_dir="$target_home/.gemini"
     local settings_file="$settings_dir/settings.json"
 
-    # Detect MCP base path: Rust am uses /mcp/, Python mcp_agent_mail uses /api/
-    local am_mcp_path="/mcp/"
-    am_mcp_path="$(_agent_detect_am_mcp_path "$target_home")"
-    local am_mcp_url="http://127.0.0.1:8765${am_mcp_path}"
     local settings_dir_q=""
     local settings_file_q=""
-    local am_mcp_url_q=""
     printf -v settings_dir_q '%q' "$settings_dir"
     printf -v settings_file_q '%q' "$settings_file"
-    printf -v am_mcp_url_q '%q' "$am_mcp_url"
 
     # Create settings directory if needed
     _agent_run_as_user "mkdir -p $settings_dir_q" || return 1
 
-    # If settings file doesn't exist, create it with tmux-compatible defaults, OAuth auth,
-    # and MCP Agent Mail server configuration (fixes #158)
+    # If settings file doesn't exist, create it with tmux-compatible defaults and OAuth auth
     if [[ ! -f "$settings_file" ]]; then
-        log_detail "Creating Gemini settings for tmux compatibility, OAuth auth, and MCP Agent Mail..."
+        log_detail "Creating Gemini settings for tmux compatibility and OAuth auth..."
         # Write default settings - the JSON is simple enough to inline
         # Note: Using double quotes for variable expansion, escaping inner quotes
         _agent_run_as_user "cat > $settings_file_q << 'GEMINI_EOF'
@@ -906,11 +850,6 @@ _configure_gemini_settings() {
   \"tools\": {
     \"shell\": {
       \"enableInteractiveShell\": false
-    }
-  },
-  \"mcpServers\": {
-    \"mcp-agent-mail\": {
-      \"httpUrl\": \"$am_mcp_url\"
     }
   }
 }
@@ -960,18 +899,11 @@ GEMINI_EOF"
             needs_update=true
         fi
 
-        # Check if MCP Agent Mail server is configured (fixes #158)
-        local mcp_value
-        mcp_value=$(_agent_run_as_user "$jq_bin_q -r '.mcpServers.\"mcp-agent-mail\".httpUrl // \"unset\"' $settings_file_q" 2>/dev/null || echo "error")
-        if [[ "$mcp_value" != "$am_mcp_url" ]]; then
-            needs_update=true
-        fi
-
         if [[ "$needs_update" == "true" ]]; then
-            log_detail "Configuring Gemini settings for tmux compatibility, OAuth, and MCP Agent Mail..."
-            # Update shell settings, auth type, and MCP server config
-            if _agent_run_as_user "$jq_bin_q --arg http_url $am_mcp_url_q '.selectedType = \"oauth-personal\" | .tools = (.tools // {}) | .tools.shell = (.tools.shell // {}) | .tools.shell.enableInteractiveShell = false | .mcpServers = (.mcpServers // {}) | .mcpServers.\"mcp-agent-mail\" = {\"httpUrl\": \$http_url}' $settings_file_q > $tmp_file_q && $mv_bin_q $tmp_file_q $settings_file_q" 2>/dev/null; then
-                log_detail "Gemini settings configured (OAuth + tmux + MCP Agent Mail)"
+            log_detail "Configuring Gemini settings for tmux compatibility and OAuth..."
+            # Update shell settings and auth type
+            if _agent_run_as_user "$jq_bin_q '.selectedType = \"oauth-personal\" | .tools = (.tools // {}) | .tools.shell = (.tools.shell // {}) | .tools.shell.enableInteractiveShell = false' $settings_file_q > $tmp_file_q && $mv_bin_q $tmp_file_q $settings_file_q" 2>/dev/null; then
+                log_detail "Gemini settings configured (OAuth + tmux)"
             else
                 _agent_run_as_user "$rm_bin_q -f $tmp_file_q" 2>/dev/null
                 log_warn "Could not update Gemini settings automatically"

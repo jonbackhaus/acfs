@@ -100,7 +100,6 @@ readonly RECOMMENDED_TOOLS=(
     
     # Dicklesworthstone stack
     "ntm"
-    "mcp_agent_mail"
     "ubs"
     "bv"
     "cass"

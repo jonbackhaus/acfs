@@ -27,7 +27,6 @@ for file in "$LIB_DIR"/*.sh; do
 done
 SCAN_FILES+=(
     "$REPO_ROOT/packages/onboard/onboard.sh"
-    "$REPO_ROOT/scripts/services-setup.sh"
 )
 
 errors=0

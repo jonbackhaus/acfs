@@ -28,18 +28,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-# Repo MCP configs are committed artifacts, so the expected URL must be
-# deterministic and cannot depend on whichever Agent Mail CLI is installed on
-# the machine running this drift check.
-EXPECTED_AGENT_MAIL_MCP_URL="http://127.0.0.1:8765/mcp/"
-REPO_MCP_CONFIG_FILES=(
-    ".claude/settings.local.json"
-    "cline.mcp.json"
-    "cursor.mcp.json"
-    "gemini.mcp.json"
-    "opencode.json"
-    "windsurf.mcp.json"
-)
 
 # Defaults
 FIX_MODE=false
@@ -133,28 +121,6 @@ parse_internal_checksums_file() {
             INTERNAL_CHECKSUM_VALUES+=("${BASH_REMATCH[2],,}")
         fi
     done < "$file"
-}
-
-extract_repo_mcp_config_url() {
-    local rel_path="$1"
-    local abs_path="$2"
-
-    command -v jq &>/dev/null || return 1
-
-    case "$rel_path" in
-        .claude/settings.local.json|cline.mcp.json|cursor.mcp.json|windsurf.mcp.json)
-            jq -r '.mcpServers["mcp-agent-mail"].url // empty' "$abs_path" 2>/dev/null || true
-            ;;
-        gemini.mcp.json)
-            jq -r '.mcpServers["mcp-agent-mail"].httpUrl // .mcpServers["mcp-agent-mail"].url // empty' "$abs_path" 2>/dev/null || true
-            ;;
-        opencode.json)
-            jq -r '.mcp["mcp-agent-mail"].url // empty' "$abs_path" 2>/dev/null || true
-            ;;
-        *)
-            return 1
-            ;;
-    esac
 }
 
 GENERATED_ARTIFACT_STATUS="skipped"
@@ -304,46 +270,6 @@ check_manifest_contract_drift() {
     esac
 }
 
-check_repo_mcp_config_drift() {
-    local record_drift="${1:-true}"
-    REPO_MCP_CONFIGS_CHECKED=0
-    REPO_MCP_CONFIG_DRIFT_COUNT=0
-    REPO_MCP_CONFIG_DRIFT_FILES=()
-
-    local rel_path abs_path configured_url
-    for rel_path in "${REPO_MCP_CONFIG_FILES[@]}"; do
-        abs_path="$REPO_ROOT/$rel_path"
-
-        if [[ ! -f "$abs_path" ]]; then
-            continue
-        fi
-
-        REPO_MCP_CONFIGS_CHECKED=$((REPO_MCP_CONFIGS_CHECKED + 1))
-        configured_url="$(extract_repo_mcp_config_url "$rel_path" "$abs_path" || true)"
-        if [[ -n "$configured_url" ]]; then
-            if [[ "$configured_url" == "$EXPECTED_AGENT_MAIL_MCP_URL" ]]; then
-                continue
-            fi
-            REPO_MCP_CONFIG_DRIFT_COUNT=$((REPO_MCP_CONFIG_DRIFT_COUNT + 1))
-            REPO_MCP_CONFIG_DRIFT_FILES+=("$rel_path")
-            if [[ "$record_drift" == "true" ]]; then
-                DRIFT_DETECTED=true
-                DRIFT_REASONS+=("Repo MCP config drift: $rel_path uses $configured_url (expected $EXPECTED_AGENT_MAIL_MCP_URL)")
-            fi
-            continue
-        fi
-
-        if ! grep -Fq "$EXPECTED_AGENT_MAIL_MCP_URL" "$abs_path"; then
-            REPO_MCP_CONFIG_DRIFT_COUNT=$((REPO_MCP_CONFIG_DRIFT_COUNT + 1))
-            REPO_MCP_CONFIG_DRIFT_FILES+=("$rel_path")
-            if [[ "$record_drift" == "true" ]]; then
-                DRIFT_DETECTED=true
-                DRIFT_REASONS+=("Repo MCP config drift: $rel_path should contain $EXPECTED_AGENT_MAIL_MCP_URL")
-            fi
-        fi
-    done
-}
-
 # Verify prerequisites
 MANIFEST="$REPO_ROOT/gtbi.manifest.yaml"
 INDEX="$REPO_ROOT/scripts/generated/manifest_index.sh"
@@ -404,9 +330,6 @@ INTERNAL_CHECKSUMS_FILE="$REPO_ROOT/scripts/generated/internal_checksums.sh"
 INTERNAL_DRIFT_COUNT=0
 INTERNAL_DRIFT_FILES=()
 INTERNAL_CHECKED=0
-REPO_MCP_CONFIGS_CHECKED=0
-REPO_MCP_CONFIG_DRIFT_COUNT=0
-REPO_MCP_CONFIG_DRIFT_FILES=()
 
 if [[ -f "$INTERNAL_CHECKSUMS_FILE" ]]; then
     if ! parse_internal_checksums_file "$INTERNAL_CHECKSUMS_FILE"; then
@@ -453,8 +376,6 @@ else
     log "Internal checksums file not found (pre-migration), skipping"
 fi
 
-check_repo_mcp_config_drift
-log "Repo MCP configs: $REPO_MCP_CONFIGS_CHECKED checked, $REPO_MCP_CONFIG_DRIFT_COUNT drifted"
 if ! check_generated_artifact_drift; then
     exit 3
 fi
@@ -472,10 +393,6 @@ if $JSON_MODE; then
     if [[ ${#INTERNAL_DRIFT_FILES[@]} -gt 0 ]]; then
         internal_drift_json=$(printf '%s\n' "${INTERNAL_DRIFT_FILES[@]}" | jq -R . | jq -s .)
     fi
-    repo_mcp_drift_json="[]"
-    if [[ ${#REPO_MCP_CONFIG_DRIFT_FILES[@]} -gt 0 ]]; then
-        repo_mcp_drift_json=$(printf '%s\n' "${REPO_MCP_CONFIG_DRIFT_FILES[@]}" | jq -R . | jq -s .)
-    fi
     generated_artifact_drift_json="[]"
     if [[ ${#GENERATED_ARTIFACT_DRIFT_FILES[@]} -gt 0 ]]; then
         generated_artifact_drift_json=$(printf '%s\n' "${GENERATED_ARTIFACT_DRIFT_FILES[@]}" | jq -R . | jq -s .)
@@ -492,7 +409,6 @@ if $JSON_MODE; then
         --argjson drift "$DRIFT_DETECTED" \
         --arg actual "$ACTUAL_SHA256" \
         --arg recorded "$RECORDED_SHA256" \
-        --arg expected_mcp_url "$EXPECTED_AGENT_MAIL_MCP_URL" \
         --arg generated_status "$GENERATED_ARTIFACT_STATUS" \
         --arg manifest_contract_status "$MANIFEST_CONTRACT_STATUS" \
         --argjson sha_lines "$SHA_LINE_COUNT" \
@@ -501,9 +417,6 @@ if $JSON_MODE; then
         --argjson internal_checked "$INTERNAL_CHECKED" \
         --argjson internal_drifted "$INTERNAL_DRIFT_COUNT" \
         --argjson internal_drift_files "$internal_drift_json" \
-        --argjson repo_mcp_checked "$REPO_MCP_CONFIGS_CHECKED" \
-        --argjson repo_mcp_drifted "$REPO_MCP_CONFIG_DRIFT_COUNT" \
-        --argjson repo_mcp_drift_files "$repo_mcp_drift_json" \
         --argjson generated_artifact_drifted "$GENERATED_ARTIFACT_DRIFT_COUNT" \
         --argjson generated_artifact_drift_files "$generated_artifact_drift_json" \
         --argjson manifest_contract_checked "$MANIFEST_CONTRACT_CHECKED" \
@@ -524,12 +437,6 @@ if $JSON_MODE; then
                 checked: $internal_checked,
                 drifted: $internal_drifted,
                 drift_files: $internal_drift_files
-            },
-            repo_mcp_configs: {
-                expected_url: $expected_mcp_url,
-                checked: $repo_mcp_checked,
-                drifted: $repo_mcp_drifted,
-                drift_files: $repo_mcp_drift_files
             },
             generated_artifacts: {
                 status: $generated_status,
@@ -661,11 +568,6 @@ if [[ -f "$INTERNAL_CHECKSUMS_FILE" ]] && [[ "$INTERNAL_DRIFT_COUNT" -gt 0 ]]; t
     log "Internal script checksums verified clean after regeneration"
 fi
 
-check_repo_mcp_config_drift false
-if [[ "$REPO_MCP_CONFIG_DRIFT_COUNT" -gt 0 ]]; then
-    log_error "Repo MCP config drift still requires manual repair: ${REPO_MCP_CONFIG_DRIFT_FILES[*]}"
-    exit 2
-fi
 if ! check_generated_artifact_drift false; then
     exit 2
 fi

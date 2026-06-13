@@ -423,10 +423,6 @@ _gtbi_doctor_find_lib_script() {
     _gtbi_doctor_find_project_path "scripts/lib/$1"
 }
 
-_gtbi_doctor_find_scripts_script() {
-    _gtbi_doctor_find_project_path "scripts/$1"
-}
-
 _gtbi_doctor_shell_has_active_assignment() {
     local file="${1:-}"
     local variable_name="${2:-}"
@@ -923,17 +919,7 @@ print_gtbi_help() {
     echo "  capacity [options]  Estimate safe/recommended agent counts"
     echo "  policy-lint         Lint AGENTS/templates/docs for policy drift"
     echo "  credential-preflight Read-only credential exposure preflight"
-    echo "  swarm plan          Queue-aware launch advisor"
-    echo "  swarm status        Local swarm/coordination JSON snapshot"
-    echo "  swarm doctor        Pre-swarm coordination preflight"
-    echo "  swarm simulate      Dry-run 10/25/50 logical-agent harness"
-    echo "  swarm assign        Role-aware Beads assignment planner"
-    echo "  swarm convergence   Epic success-criteria convergence audit"
-    echo "  swarm calibration   Artifact-backed capacity calibration report"
-    echo "  swarm inventory     Local host inventory report/import/export/validate"
-    echo "  provisioning-packet Validate/render provider provisioning packet JSON"
     echo "  offline-pack        Build verified offline artifact packs"
-    echo "  coordinate doctor   Alias for swarm doctor"
     echo "  cheatsheet          Command reference (aliases, shortcuts)"
     echo "  changelog [options] Show recent project changes"
     echo "  export-config       Export config for backup/migration"
@@ -941,7 +927,6 @@ print_gtbi_help() {
     echo "  dashboard <command> Generate/view a static HTML dashboard"
     echo "  newproj <name>      Create new project with git, br, claude settings"
     echo "  update [options]    Update GTBI tools to latest versions"
-    echo "  services-setup      Configure AI agents and cloud services"
     echo "  session <command>   Export/import/share agent sessions"
     echo "  support-bundle      Collect diagnostic data for troubleshooting"
     echo "  version             Show GTBI version"
@@ -2036,8 +2021,7 @@ check_dcg() {
     elif [[ "$hook_registered" == "true" ]]; then
         check "agent.dcg" "DCG (Destructive Command Guard)" "pass" "hook registered"
     else
-        check "agent.dcg" "DCG (Destructive Command Guard)" "warn" "not installed (optional)" \
-            "Install via: gtbi services-setup"
+        check "agent.dcg" "DCG (Destructive Command Guard)" "warn" "not installed (optional)"
     fi
 }
 
@@ -3328,7 +3312,7 @@ main() {
     local invoked_as
     invoked_as="$(basename "${0:-gtbi}")"
 
-    # If installed as `gtbi`, support subcommands (doctor/update/services-setup/version).
+    # If installed as `gtbi`, support subcommands (doctor/update/version).
     local subcmd="${1:-}"
     case "$subcmd" in
         doctor|check)
@@ -3404,253 +3388,6 @@ main() {
             fi
 
             echo "Error: credential_preflight.sh not found" >&2
-            return 1
-            ;;
-        swarm)
-            shift
-            local swarm_subcmd="${1:-status}"
-            case "$swarm_subcmd" in
-                plan|advisor)
-                    [[ $# -gt 0 ]] && shift
-                    local swarm_plan_script=""
-                    swarm_plan_script="$(_gtbi_doctor_find_lib_script "swarm_plan.sh" 2>/dev/null || true)"
-
-                    if [[ -n "$swarm_plan_script" ]]; then
-                        _gtbi_doctor_exec_bash_script "$swarm_plan_script" "$@"
-                    fi
-
-                    echo "Error: swarm_plan.sh not found" >&2
-                    return 1
-                    ;;
-                status|snapshot)
-                    [[ $# -gt 0 ]] && shift
-                    local swarm_status_script=""
-                    swarm_status_script="$(_gtbi_doctor_find_lib_script "swarm_status.sh" 2>/dev/null || true)"
-
-                    if [[ -n "$swarm_status_script" ]]; then
-                        _gtbi_doctor_exec_bash_script "$swarm_status_script" "$@"
-                    fi
-
-                    echo "Error: swarm_status.sh not found" >&2
-                    return 1
-                    ;;
-                doctor|preflight)
-                    [[ $# -gt 0 ]] && shift
-                    local swarm_doctor_script=""
-                    swarm_doctor_script="$(_gtbi_doctor_find_lib_script "swarm_doctor.sh" 2>/dev/null || true)"
-
-                    if [[ -n "$swarm_doctor_script" ]]; then
-                        _gtbi_doctor_exec_bash_script "$swarm_doctor_script" "$@"
-                    fi
-
-                    echo "Error: swarm_doctor.sh not found" >&2
-                    return 1
-                    ;;
-                simulate|simulation|dry-run)
-                    [[ $# -gt 0 ]] && shift
-                    local swarm_simulation_script=""
-                    swarm_simulation_script="$(_gtbi_doctor_find_lib_script "swarm_simulation.sh" 2>/dev/null || true)"
-
-                    if [[ -n "$swarm_simulation_script" ]]; then
-                        _gtbi_doctor_exec_bash_script "$swarm_simulation_script" "$@"
-                    fi
-
-                    echo "Error: swarm_simulation.sh not found" >&2
-                    return 1
-                    ;;
-                packet|packets|startup-packet)
-                    [[ $# -gt 0 ]] && shift
-                    local swarm_packet_script=""
-                    swarm_packet_script="$(_gtbi_doctor_find_lib_script "swarm_packet.sh" 2>/dev/null || true)"
-
-                    if [[ -n "$swarm_packet_script" ]]; then
-                        _gtbi_doctor_exec_bash_script "$swarm_packet_script" "$@"
-                    fi
-
-                    echo "Error: swarm_packet.sh not found" >&2
-                    return 1
-                    ;;
-                assign|assignment|allocate|allocations)
-                    [[ $# -gt 0 ]] && shift
-                    local swarm_assign_script=""
-                    swarm_assign_script="$(_gtbi_doctor_find_lib_script "swarm_assign.sh" 2>/dev/null || true)"
-
-                    if [[ -n "$swarm_assign_script" ]]; then
-                        _gtbi_doctor_exec_bash_script "$swarm_assign_script" "$@"
-                    fi
-
-                    echo "Error: swarm_assign.sh not found" >&2
-                    return 1
-                    ;;
-                convergence|converge|audit)
-                    [[ $# -gt 0 ]] && shift
-                    local swarm_convergence_script=""
-                    swarm_convergence_script="$(_gtbi_doctor_find_lib_script "swarm_convergence.sh" 2>/dev/null || true)"
-
-                    if [[ -n "$swarm_convergence_script" ]]; then
-                        _gtbi_doctor_exec_bash_script "$swarm_convergence_script" "$@"
-                    fi
-
-                    echo "Error: swarm_convergence.sh not found" >&2
-                    return 1
-                    ;;
-                calibration|calibrate|capacity-calibration)
-                    [[ $# -gt 0 ]] && shift
-                    local swarm_calibration_script=""
-                    swarm_calibration_script="$(_gtbi_doctor_find_lib_script "swarm_calibration.sh" 2>/dev/null || true)"
-
-                    if [[ -n "$swarm_calibration_script" ]]; then
-                        _gtbi_doctor_exec_bash_script "$swarm_calibration_script" "$@"
-                    fi
-
-                    echo "Error: swarm_calibration.sh not found" >&2
-                    return 1
-                    ;;
-                inventory|hosts|host-inventory)
-                    [[ $# -gt 0 ]] && shift
-                    local swarm_inventory_script=""
-                    swarm_inventory_script="$(_gtbi_doctor_find_lib_script "swarm_inventory.sh" 2>/dev/null || true)"
-
-                    if [[ -n "$swarm_inventory_script" ]]; then
-                        _gtbi_doctor_exec_bash_script "$swarm_inventory_script" "$@"
-                    fi
-
-                    echo "Error: swarm_inventory.sh not found" >&2
-                    return 1
-                    ;;
-                help|-h|--help)
-                    echo "Usage: gtbi swarm <plan|status|doctor|simulate|packet|assign|convergence|calibration|inventory> [--json]"
-                    return 0
-                    ;;
-                *)
-                    echo "Error: unknown swarm subcommand: $swarm_subcmd" >&2
-                    echo "Try 'gtbi swarm status --help' for usage." >&2
-                    return 2
-                    ;;
-            esac
-            ;;
-        swarm-plan|swarm_plan)
-            shift
-            local swarm_plan_script=""
-            swarm_plan_script="$(_gtbi_doctor_find_lib_script "swarm_plan.sh" 2>/dev/null || true)"
-
-            if [[ -n "$swarm_plan_script" ]]; then
-                _gtbi_doctor_exec_bash_script "$swarm_plan_script" "$@"
-            fi
-
-            echo "Error: swarm_plan.sh not found" >&2
-            return 1
-            ;;
-        swarm-status|swarm_status)
-            shift
-            local swarm_status_script=""
-            swarm_status_script="$(_gtbi_doctor_find_lib_script "swarm_status.sh" 2>/dev/null || true)"
-
-            if [[ -n "$swarm_status_script" ]]; then
-                _gtbi_doctor_exec_bash_script "$swarm_status_script" "$@"
-            fi
-
-            echo "Error: swarm_status.sh not found" >&2
-            return 1
-            ;;
-        swarm-simulate|swarm_simulate)
-            shift
-            local swarm_simulation_script=""
-            swarm_simulation_script="$(_gtbi_doctor_find_lib_script "swarm_simulation.sh" 2>/dev/null || true)"
-
-            if [[ -n "$swarm_simulation_script" ]]; then
-                _gtbi_doctor_exec_bash_script "$swarm_simulation_script" "$@"
-            fi
-
-            echo "Error: swarm_simulation.sh not found" >&2
-            return 1
-            ;;
-        swarm-packet|swarm_packet)
-            shift
-            local swarm_packet_script=""
-            swarm_packet_script="$(_gtbi_doctor_find_lib_script "swarm_packet.sh" 2>/dev/null || true)"
-
-            if [[ -n "$swarm_packet_script" ]]; then
-                _gtbi_doctor_exec_bash_script "$swarm_packet_script" "$@"
-            fi
-
-            echo "Error: swarm_packet.sh not found" >&2
-            return 1
-            ;;
-        swarm-assign|swarm_assign)
-            shift
-            local swarm_assign_script=""
-            swarm_assign_script="$(_gtbi_doctor_find_lib_script "swarm_assign.sh" 2>/dev/null || true)"
-
-            if [[ -n "$swarm_assign_script" ]]; then
-                _gtbi_doctor_exec_bash_script "$swarm_assign_script" "$@"
-            fi
-
-            echo "Error: swarm_assign.sh not found" >&2
-            return 1
-            ;;
-        swarm-convergence|swarm_convergence)
-            shift
-            local swarm_convergence_script=""
-            swarm_convergence_script="$(_gtbi_doctor_find_lib_script "swarm_convergence.sh" 2>/dev/null || true)"
-
-            if [[ -n "$swarm_convergence_script" ]]; then
-                _gtbi_doctor_exec_bash_script "$swarm_convergence_script" "$@"
-            fi
-
-            echo "Error: swarm_convergence.sh not found" >&2
-            return 1
-            ;;
-        swarm-calibration|swarm_calibration)
-            shift
-            local swarm_calibration_script=""
-            swarm_calibration_script="$(_gtbi_doctor_find_lib_script "swarm_calibration.sh" 2>/dev/null || true)"
-
-            if [[ -n "$swarm_calibration_script" ]]; then
-                _gtbi_doctor_exec_bash_script "$swarm_calibration_script" "$@"
-            fi
-
-            echo "Error: swarm_calibration.sh not found" >&2
-            return 1
-            ;;
-        swarm-inventory|swarm_inventory)
-            shift
-            local swarm_inventory_script=""
-            swarm_inventory_script="$(_gtbi_doctor_find_lib_script "swarm_inventory.sh" 2>/dev/null || true)"
-
-            if [[ -n "$swarm_inventory_script" ]]; then
-                _gtbi_doctor_exec_bash_script "$swarm_inventory_script" "$@"
-            fi
-
-            echo "Error: swarm_inventory.sh not found" >&2
-            return 1
-            ;;
-        coordinate|coord)
-            shift
-            local coordinate_subcmd="${1:-doctor}"
-            case "$coordinate_subcmd" in
-                doctor|preflight)
-                    [[ $# -gt 0 ]] && shift
-                    ;;
-                help|-h|--help)
-                    echo "Usage: gtbi coordinate doctor [--json]"
-                    return 0
-                    ;;
-                *)
-                    echo "Error: unknown coordinate subcommand: $coordinate_subcmd" >&2
-                    echo "Try 'gtbi coordinate doctor --help' for usage." >&2
-                    return 2
-                    ;;
-            esac
-
-            local swarm_doctor_script=""
-            swarm_doctor_script="$(_gtbi_doctor_find_lib_script "swarm_doctor.sh" 2>/dev/null || true)"
-
-            if [[ -n "$swarm_doctor_script" ]]; then
-                _gtbi_doctor_exec_bash_script "$swarm_doctor_script" "$@"
-            fi
-
-            echo "Error: swarm_doctor.sh not found" >&2
             return 1
             ;;
         dashboard)
@@ -3742,18 +3479,6 @@ main() {
             echo "Error: newproj.sh not found" >&2
             return 1
             ;;
-        services-setup|services|setup)
-            shift
-            local services_script=""
-            services_script="$(_gtbi_doctor_find_scripts_script "services-setup.sh" 2>/dev/null || true)"
-
-            if [[ -n "$services_script" ]]; then
-                _gtbi_doctor_exec_bash_script "$services_script" "$@"
-            fi
-
-            echo "Error: services-setup.sh not found" >&2
-            return 1
-            ;;
         support-bundle|bundle)
             shift
             local support_script=""
@@ -3764,18 +3489,6 @@ main() {
             fi
 
             echo "Error: support.sh not found" >&2
-            return 1
-            ;;
-        provisioning-packet|provider-packet)
-            shift
-            local provisioning_packet_script=""
-            provisioning_packet_script="$(_gtbi_doctor_find_lib_script "provisioning_packet.sh" 2>/dev/null || true)"
-
-            if [[ -n "$provisioning_packet_script" ]]; then
-                _gtbi_doctor_exec_bash_script "$provisioning_packet_script" "$@"
-            fi
-
-            echo "Error: provisioning_packet.sh not found" >&2
             return 1
             ;;
         offline-pack|artifact-pack)

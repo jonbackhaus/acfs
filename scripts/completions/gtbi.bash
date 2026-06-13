@@ -8,7 +8,7 @@ _gtbi_completions() {
     local cur prev words cword
     _init_completion || return
 
-    local commands="newproj new services svc services-setup setup doctor check session sessions update status continue progress info i capacity cap policy-lint policy_lint credential-preflight credential_preflight secrets-preflight secrets_preflight swarm swarm-plan swarm_plan swarm-status swarm_status swarm-simulate swarm_simulate swarm-packet swarm_packet swarm-assign swarm_assign swarm-convergence swarm_convergence swarm-calibration swarm_calibration swarm-inventory swarm_inventory provisioning-packet provider-packet offline-pack artifact-pack coordinate coord cheatsheet cs changelog changes log export-config export dashboard dash support-bundle bundle version help"
+    local commands="newproj new doctor check session sessions update status continue progress info i capacity cap policy-lint policy_lint credential-preflight credential_preflight secrets-preflight secrets_preflight offline-pack artifact-pack cheatsheet cs changelog changes log export-config export dashboard dash support-bundle bundle version help"
 
     # Subcommand-specific flags
     local newproj_flags="-i --interactive --no-br --no-claude --no-agents -h --help"
@@ -18,19 +18,7 @@ _gtbi_completions() {
     local capacity_flags="--json --workload --profile --recommend-ntm -h --help"
     local policy_lint_flags="--json --human --root --file -h --help"
     local credential_preflight_flags="--json --human --home --gtbi-home --root --file --exclude --max-bytes -h --help"
-    local swarm_subcommands="plan advisor status snapshot doctor preflight simulate packet assign convergence calibration inventory hosts host-inventory help"
-    local swarm_plan_flags="--json --agents --profile --workload --status-file -h --help"
-    local swarm_status_flags="--json -h --help"
-    local swarm_doctor_flags="--json --status-file -h --help"
-    local swarm_simulate_flags="--json --counts --workload --artifact-dir --status-file -h --help"
-    local swarm_packet_flags="--json --markdown --bead --bead-id --bead-file --repo --agent-name --role --max-chars --agents-file --readme-file --cm-file --cass-file --no-live-context -h --help"
-    local swarm_assign_flags="--json --markdown --agents --roles --profile --ready-file --triage-file -h --help"
-    local swarm_convergence_flags="--json --markdown --epic --epic-file --issues-file --commits-file -h --help"
-    local swarm_calibration_flags="--json --markdown --artifact-dir --rch-file -h --help"
-    local swarm_inventory_flags="report import export validate --json --markdown --inventory --input --output --format --artifact-dir -h --help"
-    local provisioning_packet_flags="--json --markdown --file --packet -h --help"
     local offline_pack_flags="build --json --markdown --output --module --dry-run --best-effort --source-root --manifest-file --checksums-file --arch --ubuntu-version --timeout --expires-days -h --help"
-    local coordinate_subcommands="doctor preflight help"
     local cheatsheet_flags="--json"
     local changelog_flags="--all --since --json -h --help"
     local export_config_flags="--json --minimal --output -h --help"
@@ -41,8 +29,6 @@ _gtbi_completions() {
     local session_import_flags="--dry-run"
     local session_convert_flags="--from --to --workspace --session-id --dry-run --json --no-json"
     local session_show_flags="--format"
-    local services_subcommands="start stop status restart logs help"
-    local services_logs_targets="agent-mail cm cass"
     local dashboard_subcommands="generate serve"
     local common_flags="-h --help"
 
@@ -50,7 +36,7 @@ _gtbi_completions() {
     local cmd=""
     for ((i=1; i < cword; i++)); do
         case "${words[i]}" in
-            newproj|new|services|svc|services-setup|setup|doctor|check|session|sessions|update|status|continue|progress|info|i|capacity|cap|policy-lint|policy_lint|credential-preflight|credential_preflight|secrets-preflight|secrets_preflight|swarm|swarm-plan|swarm_plan|swarm-status|swarm_status|swarm-simulate|swarm_simulate|swarm-packet|swarm_packet|swarm-assign|swarm_assign|swarm-convergence|swarm_convergence|swarm-calibration|swarm_calibration|swarm-inventory|swarm_inventory|provisioning-packet|provider-packet|offline-pack|artifact-pack|coordinate|coord|cheatsheet|cs|changelog|changes|log|export-config|export|dashboard|dash|support-bundle|bundle|version|help)
+            newproj|new|doctor|check|session|sessions|update|status|continue|progress|info|i|capacity|cap|policy-lint|policy_lint|credential-preflight|credential_preflight|secrets-preflight|secrets_preflight|offline-pack|artifact-pack|cheatsheet|cs|changelog|changes|log|export-config|export|dashboard|dash|support-bundle|bundle|version|help)
                 cmd="${words[i]}"
                 break
                 ;;
@@ -86,116 +72,8 @@ _gtbi_completions() {
             mapfile -t COMPREPLY < <(compgen -W "$credential_preflight_flags" -- "$cur")
             return
             ;;
-        provisioning-packet|provider-packet)
-            mapfile -t COMPREPLY < <(compgen -W "$provisioning_packet_flags" -- "$cur")
-            return
-            ;;
         offline-pack|artifact-pack)
             mapfile -t COMPREPLY < <(compgen -W "$offline_pack_flags" -- "$cur")
-            return
-            ;;
-        swarm)
-            local swarm_cmd=""
-            for ((j=i+1; j < cword; j++)); do
-                case "${words[j]}" in
-                    plan|advisor|status|snapshot|doctor|preflight|simulate|packet|assign|convergence|calibration|inventory|hosts|host-inventory|help)
-                        swarm_cmd="${words[j]}"
-                        break
-                        ;;
-                esac
-            done
-
-            case "$swarm_cmd" in
-                plan|advisor)
-                    mapfile -t COMPREPLY < <(compgen -W "$swarm_plan_flags" -- "$cur")
-                    ;;
-                status|snapshot)
-                    mapfile -t COMPREPLY < <(compgen -W "$swarm_status_flags" -- "$cur")
-                    ;;
-                doctor|preflight)
-                    mapfile -t COMPREPLY < <(compgen -W "$swarm_doctor_flags" -- "$cur")
-                    ;;
-                simulate)
-                    mapfile -t COMPREPLY < <(compgen -W "$swarm_simulate_flags" -- "$cur")
-                    ;;
-                packet)
-                    mapfile -t COMPREPLY < <(compgen -W "$swarm_packet_flags" -- "$cur")
-                    ;;
-                assign)
-                    mapfile -t COMPREPLY < <(compgen -W "$swarm_assign_flags" -- "$cur")
-                    ;;
-                convergence)
-                    mapfile -t COMPREPLY < <(compgen -W "$swarm_convergence_flags" -- "$cur")
-                    ;;
-                calibration)
-                    mapfile -t COMPREPLY < <(compgen -W "$swarm_calibration_flags" -- "$cur")
-                    ;;
-                inventory|hosts|host-inventory)
-                    mapfile -t COMPREPLY < <(compgen -W "$swarm_inventory_flags" -- "$cur")
-                    ;;
-                help)
-                    COMPREPLY=()
-                    ;;
-                *)
-                    mapfile -t COMPREPLY < <(compgen -W "$swarm_subcommands" -- "$cur")
-                    ;;
-            esac
-            return
-            ;;
-        swarm-plan|swarm_plan)
-            mapfile -t COMPREPLY < <(compgen -W "$swarm_plan_flags" -- "$cur")
-            return
-            ;;
-        swarm-status|swarm_status)
-            mapfile -t COMPREPLY < <(compgen -W "$swarm_status_flags" -- "$cur")
-            return
-            ;;
-        swarm-simulate|swarm_simulate)
-            mapfile -t COMPREPLY < <(compgen -W "$swarm_simulate_flags" -- "$cur")
-            return
-            ;;
-        swarm-packet|swarm_packet)
-            mapfile -t COMPREPLY < <(compgen -W "$swarm_packet_flags" -- "$cur")
-            return
-            ;;
-        swarm-assign|swarm_assign)
-            mapfile -t COMPREPLY < <(compgen -W "$swarm_assign_flags" -- "$cur")
-            return
-            ;;
-        swarm-convergence|swarm_convergence)
-            mapfile -t COMPREPLY < <(compgen -W "$swarm_convergence_flags" -- "$cur")
-            return
-            ;;
-        swarm-calibration|swarm_calibration)
-            mapfile -t COMPREPLY < <(compgen -W "$swarm_calibration_flags" -- "$cur")
-            return
-            ;;
-        swarm-inventory|swarm_inventory)
-            mapfile -t COMPREPLY < <(compgen -W "$swarm_inventory_flags" -- "$cur")
-            return
-            ;;
-        coordinate|coord)
-            local coord_cmd=""
-            for ((j=i+1; j < cword; j++)); do
-                case "${words[j]}" in
-                    doctor|preflight|help)
-                        coord_cmd="${words[j]}"
-                        break
-                        ;;
-                esac
-            done
-
-            case "$coord_cmd" in
-                doctor|preflight)
-                    mapfile -t COMPREPLY < <(compgen -W "$swarm_doctor_flags" -- "$cur")
-                    ;;
-                help)
-                    COMPREPLY=()
-                    ;;
-                *)
-                    mapfile -t COMPREPLY < <(compgen -W "$coordinate_subcommands" -- "$cur")
-                    ;;
-            esac
             return
             ;;
         cheatsheet|cs)
@@ -269,34 +147,6 @@ _gtbi_completions() {
             esac
             return
             ;;
-        services|svc)
-            # Check if we have a services subcommand
-            local svc_cmd=""
-            for ((j=i+1; j < cword; j++)); do
-                case "${words[j]}" in
-                    start|stop|status|restart|logs|help)
-                        svc_cmd="${words[j]}"
-                        break
-                        ;;
-                esac
-            done
-
-            case "$svc_cmd" in
-                logs)
-                    mapfile -t COMPREPLY < <(compgen -W "$services_logs_targets --dry-run" -- "$cur")
-                    ;;
-                start|stop|restart)
-                    mapfile -t COMPREPLY < <(compgen -W "--dry-run" -- "$cur")
-                    ;;
-                status|help)
-                    COMPREPLY=()
-                    ;;
-                *)
-                    mapfile -t COMPREPLY < <(compgen -W "$services_subcommands --dry-run" -- "$cur")
-                    ;;
-            esac
-            return
-            ;;
         dashboard|dash)
             # Check if we have a dashboard subcommand
             local dash_cmd=""
@@ -314,7 +164,7 @@ _gtbi_completions() {
             fi
             return
             ;;
-        update|continue|progress|services-setup|setup|support-bundle|bundle|version|help)
+        update|continue|progress|support-bundle|bundle|version|help)
             mapfile -t COMPREPLY < <(compgen -W "$common_flags" -- "$cur")
             return
             ;;

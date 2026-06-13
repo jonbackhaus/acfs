@@ -9,9 +9,9 @@
 
 declare -gA GTBI_INTERNAL_CHECKSUMS=(
   [scripts/lib/security.sh]="eb0e4c1f9336844a515cc7970aeabb618556ded3a46f2fa2ec04f28a78fb386c"
-  [scripts/lib/agents.sh]="95fe25d4f5a668e34a335a27785099ccec7388b2af7de36bb042d34498ce9e56"
-  [scripts/lib/update.sh]="ccf36631e86e64010a08141a69e923f8607d934768b0705b4ac59884367324df"
-  [scripts/lib/doctor.sh]="fa079a960951dea9f2f29b768ee56670c462b39702f2d1d031ff8b69e0c60470"
+  [scripts/lib/agents.sh]="0e4863b6ebeed98422d3fa31fe0cd3de2331941543b565950be2a0c009e05a02"
+  [scripts/lib/update.sh]="0caa5dd8af2cb186478ca0f510335fe1b2d4c96496d207a3c91d2e8a1cd6ef32"
+  [scripts/lib/doctor.sh]="d8323e27506c9898ee6b7d395934f2c5564d9598a24f44bde5cca39c5efc741a"
   [scripts/lib/doctor_fix.sh]="170a6eb88ee98b3abe4a39327ee61d1443f8bbeae36e9c483fccbea4f94781a7"
   [scripts/lib/offline_artifact_pack.sh]="2bf6919d38ea9e9f558abb5d01b82b3d032bace4d16a08f1824d678f53ebd505"
   [scripts/lib/autofix.sh]="0e31484327393b76a2938cf400001c1411275652b4673500f3d026ec1230399f"
@@ -22,7 +22,7 @@ declare -gA GTBI_INTERNAL_CHECKSUMS=(
   [scripts/lib/os_detect.sh]="f8f0a52fdaec7411b2998955dbf3f6369629bdbe45e8cf1bda385e59729fb924"
   [scripts/lib/errors.sh]="701a649e9b16174e295033936373b1301909d298a2f246bf4946298403368555"
   [scripts/lib/user.sh]="13fb222c0237ea2257fcb4c29ecd69ad893231f6ddad54dab9b3e3ddd9f48323"
-  [scripts/lib/tools.sh]="970f5040bfb9260b45663d2ef36cc3ee7de005b3dfd81e2a75cf42a3679b5692"
+  [scripts/lib/tools.sh]="52b94e815f98036c85535dd5e598ea4eaa8b49d3a1cee8c21da73c02071db3d2"
   [scripts/lib/export-config.sh]="cb95cd91efbf04edd965e5cd4fab5ce5037055eed4c7e49c2db59d38354bcf50"
   [scripts/gtbi-global]="de932bdc7f0468de9dc690f141c755612b1fe1dc9f2789ba1049e23b97cc6151"
   [scripts/gtbi-update]="3619abfeffdb36609ee12e534daaadc9a8f5766c933a156a5112c67dc26f5f59"

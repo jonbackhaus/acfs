@@ -2748,7 +2748,7 @@ sync_gtbi_deployed() {
         local deployed_rel="$1"
 
         case "$deployed_rel" in
-            bin/gtbi|bin/gtbi-update|bin/flywheel-update-agents-md|onboard/onboard.sh|scripts/generated/*.sh|scripts/lib/*.sh|scripts/nightly-update.sh|scripts/services-setup.sh)
+            bin/gtbi|bin/gtbi-update|bin/flywheel-update-agents-md|onboard/onboard.sh|scripts/generated/*.sh|scripts/lib/*.sh|scripts/nightly-update.sh)
                 printf '%s\n' "755"
                 ;;
         esac
@@ -2840,7 +2840,6 @@ sync_gtbi_deployed() {
         "scripts/lib/doctor.sh:bin/gtbi"
         "scripts/gtbi-update:bin/gtbi-update"
         "scripts/generate-root-agents-md.sh:bin/flywheel-update-agents-md"
-        "scripts/services-setup.sh:scripts/services-setup.sh"
         "scripts/lib/info.sh:scripts/lib/info.sh"
         "scripts/lib/status.sh:scripts/lib/status.sh"
         "scripts/lib/rescue.sh:scripts/lib/rescue.sh"
@@ -2853,15 +2852,6 @@ sync_gtbi_deployed() {
         "scripts/lib/support.sh:scripts/lib/support.sh"
         "scripts/lib/policy_lint.sh:scripts/lib/policy_lint.sh"
         "scripts/lib/credential_preflight.sh:scripts/lib/credential_preflight.sh"
-        "scripts/lib/swarm_plan.sh:scripts/lib/swarm_plan.sh"
-        "scripts/lib/swarm_status.sh:scripts/lib/swarm_status.sh"
-        "scripts/lib/swarm_doctor.sh:scripts/lib/swarm_doctor.sh"
-        "scripts/lib/swarm_simulation.sh:scripts/lib/swarm_simulation.sh"
-        "scripts/lib/swarm_packet.sh:scripts/lib/swarm_packet.sh"
-        "scripts/lib/swarm_assign.sh:scripts/lib/swarm_assign.sh"
-        "scripts/lib/swarm_convergence.sh:scripts/lib/swarm_convergence.sh"
-        "scripts/lib/swarm_calibration.sh:scripts/lib/swarm_calibration.sh"
-        "scripts/lib/swarm_inventory.sh:scripts/lib/swarm_inventory.sh"
         "scripts/lib/landing_plane.sh:scripts/lib/landing_plane.sh"
         "scripts/lib/provenance.sh:scripts/lib/provenance.sh"
         "scripts/lib/offline_artifact_pack.sh:scripts/lib/offline_artifact_pack.sh"
