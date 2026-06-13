@@ -81,15 +81,6 @@ _gtbi() {
                         '-h[Show help message]' \
                         '--help[Show help message]'
                     ;;
-                provisioning-packet|provider-packet)
-                    _arguments \
-                        '--json[Emit machine-readable validation JSON]' \
-                        '--markdown[Emit human-readable validation output]' \
-                        '--file[Provider provisioning packet JSON file]:file:_files' \
-                        '--packet[Provider provisioning packet JSON file]:file:_files' \
-                        '-h[Show help message]' \
-                        '--help[Show help message]'
-                    ;;
                 offline-pack|artifact-pack)
                     _arguments \
                         '1: :((build\\:Build\\ verified\\ offline\\ artifact\\ pack))' \
@@ -108,224 +99,6 @@ _gtbi() {
                         '--expires-days[Pack expiry window in days]:days:' \
                         '-h[Show help message]' \
                         '--help[Show help message]'
-                    ;;
-                swarm)
-                    _arguments -C \
-                        '1: :_gtbi_swarm_commands' \
-                        '*::arg:->swarm_args'
-
-                    case $state in
-                        swarm_args)
-                            case $line[1] in
-                                plan|advisor)
-                                    _arguments \
-                                        '--json[JSON output]' \
-                                        '--agents[Requested agent count]:agents:' \
-                                        '--profile[Launch mix profile]:profile:(balanced codex-heavy review-heavy docs-heavy)' \
-                                        '--workload[Workload model]:workload:(light standard heavy)' \
-                                        '--status-file[Read an existing swarm status snapshot]:file:_files' \
-                                        '-h[Show help message]' \
-                                        '--help[Show help message]'
-                                    ;;
-                                status|snapshot)
-                                    _arguments \
-                                        '--json[JSON output]' \
-                                        '-h[Show help message]' \
-                                        '--help[Show help message]'
-                                    ;;
-                                doctor|preflight)
-                                    _arguments \
-                                        '--json[JSON output]' \
-                                        '--status-file[Read an existing swarm status snapshot]:file:_files' \
-                                        '-h[Show help message]' \
-                                        '--help[Show help message]'
-                                    ;;
-                                simulate)
-                                    _arguments \
-                                        '--json[JSON output]' \
-                                        '--counts[Comma-separated agent counts]:counts:' \
-                                        '--workload[Workload model]:workload:(light standard heavy)' \
-                                        '--artifact-dir[Directory for simulation artifacts]:directory:_files -/' \
-                                        '--status-file[Read an existing swarm status snapshot]:file:_files' \
-                                        '-h[Show help message]' \
-                                        '--help[Show help message]'
-                                    ;;
-                                packet)
-                                    _arguments \
-                                        '--json[JSON output]' \
-                                        '--markdown[Markdown output]' \
-                                        '--bead[Beads issue ID]:bead:' \
-                                        '--bead-id[Beads issue ID]:bead:' \
-                                        '--bead-file[Read Beads JSON from fixture]:file:_files' \
-                                        '--repo[Repository root]:directory:_files -/' \
-                                        '--agent-name[Agent identity]:name:' \
-                                        '--role[Agent role]:role:' \
-                                        '--max-chars[Maximum packet characters]:chars:' \
-                                        '--agents-file[AGENTS.md path]:file:_files' \
-                                        '--readme-file[README.md path]:file:_files' \
-                                        '--cm-file[CM context fixture]:file:_files' \
-                                        '--cass-file[CASS context fixture]:file:_files' \
-                                        '--no-live-context[Skip live cm and cass commands]' \
-                                        '-h[Show help message]' \
-                                        '--help[Show help message]'
-                                    ;;
-                                assign)
-                                    _arguments \
-                                        '--json[JSON output]' \
-                                        '--markdown[Markdown output]' \
-                                        '--agents[Requested agent count]:agents:' \
-                                        '--roles[Role mix, e.g. implementation:2,review:1]:roles:' \
-                                        '--profile[Role profile]:profile:(balanced codex-heavy review-heavy docs-heavy)' \
-                                        '--ready-file[Read br ready JSON from file]:file:_files' \
-                                        '--triage-file[Read bv robot triage JSON from file]:file:_files' \
-                                        '-h[Show help message]' \
-                                        '--help[Show help message]'
-                                    ;;
-                                convergence)
-                                    _arguments \
-                                        '--json[JSON output]' \
-                                        '--markdown[Markdown output]' \
-                                        '--epic[Epic Bead ID]:bead:' \
-                                        '--epic-file[Read epic JSON from file]:file:_files' \
-                                        '--issues-file[Read issue JSON/JSONL from file]:file:_files' \
-                                        '--commits-file[Read commit evidence JSON from file]:file:_files' \
-                                        '-h[Show help message]' \
-                                        '--help[Show help message]'
-                                    ;;
-                                calibration)
-                                    _arguments \
-                                        '--json[JSON output]' \
-                                        '--markdown[Markdown output]' \
-                                        '--artifact-dir[Read simulation artifact directory]:directory:_files -/' \
-                                        '--rch-file[Read optional RCH timing JSON]:file:_files' \
-                                        '-h[Show help message]' \
-                                        '--help[Show help message]'
-                                    ;;
-                                inventory|hosts|host-inventory)
-                                    _arguments \
-                                        '1:inventory command:(report import export validate)' \
-                                        '--json[JSON output]' \
-                                        '--markdown[Markdown output]' \
-                                        '--inventory[Inventory file]:file:_files' \
-                                        '--input[Input file for import]:file:_files' \
-                                        '--output[Output file for import/export]:file:_files' \
-                                        '--format[Export format]:format:(json)' \
-                                        '--artifact-dir[Write error artifacts here]:directory:_files -/' \
-                                        '-h[Show help message]' \
-                                        '--help[Show help message]'
-                                    ;;
-                            esac
-                            ;;
-                    esac
-                    ;;
-                swarm-plan|swarm_plan)
-                    _arguments \
-                        '--json[JSON output]' \
-                        '--agents[Requested agent count]:agents:' \
-                        '--profile[Launch mix profile]:profile:(balanced codex-heavy review-heavy docs-heavy)' \
-                        '--workload[Workload model]:workload:(light standard heavy)' \
-                        '--status-file[Read an existing swarm status snapshot]:file:_files' \
-                        '-h[Show help message]' \
-                        '--help[Show help message]'
-                    ;;
-                swarm-status|swarm_status)
-                    _arguments \
-                        '--json[JSON output]' \
-                        '-h[Show help message]' \
-                        '--help[Show help message]'
-                    ;;
-                swarm-simulate|swarm_simulate)
-                    _arguments \
-                        '--json[JSON output]' \
-                        '--counts[Comma-separated agent counts]:counts:' \
-                        '--workload[Workload model]:workload:(light standard heavy)' \
-                        '--artifact-dir[Directory for simulation artifacts]:directory:_files -/' \
-                        '--status-file[Read an existing swarm status snapshot]:file:_files' \
-                        '-h[Show help message]' \
-                        '--help[Show help message]'
-                    ;;
-                swarm-packet|swarm_packet)
-                    _arguments \
-                        '--json[JSON output]' \
-                        '--markdown[Markdown output]' \
-                        '--bead[Beads issue ID]:bead:' \
-                        '--bead-id[Beads issue ID]:bead:' \
-                        '--bead-file[Read Beads JSON from fixture]:file:_files' \
-                        '--repo[Repository root]:directory:_files -/' \
-                        '--agent-name[Agent identity]:name:' \
-                        '--role[Agent role]:role:' \
-                        '--max-chars[Maximum packet characters]:chars:' \
-                        '--agents-file[AGENTS.md path]:file:_files' \
-                        '--readme-file[README.md path]:file:_files' \
-                        '--cm-file[CM context fixture]:file:_files' \
-                        '--cass-file[CASS context fixture]:file:_files' \
-                        '--no-live-context[Skip live cm and cass commands]' \
-                        '-h[Show help message]' \
-                        '--help[Show help message]'
-                    ;;
-                swarm-assign|swarm_assign)
-                    _arguments \
-                        '--json[JSON output]' \
-                        '--markdown[Markdown output]' \
-                        '--agents[Requested agent count]:agents:' \
-                        '--roles[Role mix, e.g. implementation:2,review:1]:roles:' \
-                        '--profile[Role profile]:profile:(balanced codex-heavy review-heavy docs-heavy)' \
-                        '--ready-file[Read br ready JSON from file]:file:_files' \
-                        '--triage-file[Read bv robot triage JSON from file]:file:_files' \
-                        '-h[Show help message]' \
-                        '--help[Show help message]'
-                    ;;
-                swarm-convergence|swarm_convergence)
-                    _arguments \
-                        '--json[JSON output]' \
-                        '--markdown[Markdown output]' \
-                        '--epic[Epic Bead ID]:bead:' \
-                        '--epic-file[Read epic JSON from file]:file:_files' \
-                        '--issues-file[Read issue JSON/JSONL from file]:file:_files' \
-                        '--commits-file[Read commit evidence JSON from file]:file:_files' \
-                        '-h[Show help message]' \
-                        '--help[Show help message]'
-                    ;;
-                swarm-calibration|swarm_calibration)
-                    _arguments \
-                        '--json[JSON output]' \
-                        '--markdown[Markdown output]' \
-                        '--artifact-dir[Read simulation artifact directory]:directory:_files -/' \
-                        '--rch-file[Read optional RCH timing JSON]:file:_files' \
-                        '-h[Show help message]' \
-                        '--help[Show help message]'
-                    ;;
-                swarm-inventory|swarm_inventory)
-                    _arguments \
-                        '1:inventory command:(report import export validate)' \
-                        '--json[JSON output]' \
-                        '--markdown[Markdown output]' \
-                        '--inventory[Inventory file]:file:_files' \
-                        '--input[Input file for import]:file:_files' \
-                        '--output[Output file for import/export]:file:_files' \
-                        '--format[Export format]:format:(json)' \
-                        '--artifact-dir[Write error artifacts here]:directory:_files -/' \
-                        '-h[Show help message]' \
-                        '--help[Show help message]'
-                    ;;
-                coordinate|coord)
-                    _arguments -C \
-                        '1: :_gtbi_coordinate_commands' \
-                        '*::arg:->coordinate_args'
-
-                    case $state in
-                        coordinate_args)
-                            case $line[1] in
-                                doctor|preflight)
-                                    _arguments \
-                                        '--json[JSON output]' \
-                                        '--status-file[Read an existing swarm status snapshot]:file:_files' \
-                                        '-h[Show help message]' \
-                                        '--help[Show help message]'
-                                    ;;
-                            esac
-                            ;;
-                    esac
                     ;;
                 cheatsheet|cs)
                     _arguments \
@@ -407,7 +180,7 @@ _gtbi() {
                         '1: :_gtbi_dashboard_commands' \
                         '*::arg:->dashboard_args'
                     ;;
-                update|continue|progress|services-setup|services|setup|support-bundle|bundle)
+                update|continue|progress|support-bundle|bundle)
                     _arguments \
                         '-h[Show help message]' \
                         '--help[Show help message]'
@@ -422,9 +195,6 @@ _gtbi_commands() {
     commands=(
         'newproj:Create new project (git, br, AGENTS.md, Claude settings)'
         'new:Create new project (alias for newproj)'
-        'services-setup:Configure AI agents and cloud services'
-        'services:Configure services (alias for services-setup)'
-        'setup:Configure services (alias for services-setup)'
         'doctor:Check system health and tool status'
         'check:Check system health (alias for doctor)'
         'session:List/export/import agent sessions (cass)'
@@ -443,29 +213,8 @@ _gtbi_commands() {
         'credential_preflight:Read-only credential exposure preflight'
         'secrets-preflight:Alias for credential-preflight'
         'secrets_preflight:Alias for credential-preflight'
-        'swarm:Swarm plan, status, doctor, simulation, packets, and inventory'
-        'swarm-plan:Queue-aware launch advisor'
-        'swarm_plan:Queue-aware launch advisor'
-        'swarm-status:Local swarm status snapshot'
-        'swarm_status:Local swarm status snapshot'
-        'swarm-simulate:Dry-run fleet-scale simulation harness'
-        'swarm_simulate:Dry-run fleet-scale simulation harness'
-        'swarm-packet:Per-agent startup packet generator'
-        'swarm_packet:Per-agent startup packet generator'
-        'swarm-assign:Role-aware Beads assignment planner'
-        'swarm_assign:Role-aware Beads assignment planner'
-        'swarm-convergence:Epic success-criteria convergence audit'
-        'swarm_convergence:Epic success-criteria convergence audit'
-        'swarm-calibration:Artifact-backed capacity calibration report'
-        'swarm_calibration:Artifact-backed capacity calibration report'
-        'swarm-inventory:Local host inventory report/import/export/validate'
-        'swarm_inventory:Local host inventory report/import/export/validate'
-        'provisioning-packet:Validate/render provider provisioning packet JSON'
-        'provider-packet:Validate/render provider packet JSON'
         'offline-pack:Build verified offline artifact packs'
         'artifact-pack:Build verified offline artifact packs'
-        'coordinate:Coordination preflight helpers'
-        'coord:Coordination helpers (alias for coordinate)'
         'cheatsheet:Command reference (aliases, shortcuts)'
         'cs:Command reference (alias for cheatsheet)'
         'changelog:Show recent project changes'
@@ -504,38 +253,6 @@ _gtbi_dashboard_commands() {
         'serve:Serve dashboard locally'
     )
     _describe -t commands 'dashboard command' commands
-}
-
-_gtbi_swarm_commands() {
-    local commands
-    commands=(
-        'plan:Queue-aware launch advisor'
-        'advisor:Queue-aware launch advisor'
-        'status:Local coordination snapshot'
-        'snapshot:Local coordination snapshot'
-        'doctor:Pre-swarm coordination preflight'
-        'preflight:Pre-swarm coordination preflight'
-        'simulate:Dry-run fleet-scale simulation harness'
-        'packet:Per-agent startup packet generator'
-        'assign:Role-aware Beads assignment planner'
-        'convergence:Epic success-criteria convergence audit'
-        'calibration:Artifact-backed capacity calibration report'
-        'inventory:Local host inventory report/import/export/validate'
-        'hosts:Local host inventory report/import/export/validate'
-        'host-inventory:Local host inventory report/import/export/validate'
-        'help:Show swarm help'
-    )
-    _describe -t commands 'swarm command' commands
-}
-
-_gtbi_coordinate_commands() {
-    local commands
-    commands=(
-        'doctor:Pre-swarm coordination preflight'
-        'preflight:Pre-swarm coordination preflight'
-        'help:Show coordinate help'
-    )
-    _describe -t commands 'coordinate command' commands
 }
 
 _gtbi "$@"

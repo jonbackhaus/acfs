@@ -20,7 +20,6 @@ CONTINUE_SH="$REPO_ROOT/scripts/lib/continue.sh"
 STATE_SH="$REPO_ROOT/scripts/lib/state.sh"
 SMOKE_TEST_SH="$REPO_ROOT/scripts/lib/smoke_test.sh"
 ONBOARD_SH="$REPO_ROOT/packages/onboard/onboard.sh"
-SERVICES_SETUP_SH="$REPO_ROOT/scripts/services-setup.sh"
 PREFLIGHT_SH="$REPO_ROOT/scripts/preflight.sh"
 NOTIFY_SH="$REPO_ROOT/scripts/lib/notify.sh"
 WEBHOOK_SH="$REPO_ROOT/scripts/lib/webhook.sh"
@@ -32,7 +31,6 @@ STACK_SH="$REPO_ROOT/scripts/lib/stack.sh"
 CLI_TOOLS_SH="$REPO_ROOT/scripts/lib/cli_tools.sh"
 AGENTS_SH="$REPO_ROOT/scripts/lib/agents.sh"
 LANGUAGES_SH="$REPO_ROOT/scripts/lib/languages.sh"
-CLOUD_DB_SH="$REPO_ROOT/scripts/lib/cloud_db.sh"
 GITHUB_API_SH="$REPO_ROOT/scripts/lib/github_api.sh"
 NIGHTLY_UPDATE_SH="$REPO_ROOT/scripts/lib/nightly_update.sh"
 OS_DETECT_SH="$REPO_ROOT/scripts/lib/os_detect.sh"
@@ -518,436 +516,6 @@ test_changelog_rejects_invalid_duration() {
     fi
 
     cleanup_mock_env
-}
-
-test_services_setup_prefers_target_home_libs_under_root_home() {
-    setup_mock_env
-
-    local root_home="$TEST_HOME/root-home"
-    local target_home="$TEST_HOME/target-home"
-    local output=""
-
-    mkdir -p \
-        "$root_home/.gtbi/scripts/lib" \
-        "$target_home/.gtbi/scripts/lib" \
-        "$target_home/.gtbi/scripts"
-
-    cp "$SERVICES_SETUP_SH" "$target_home/.gtbi/scripts/services-setup.sh"
-
-    cat > "$root_home/.gtbi/scripts/lib/logging.sh" <<'EOF'
-#!/usr/bin/env bash
-log_error() { echo "ROOT_LOG_ERROR:$*"; }
-log_info() { :; }
-log_warn() { :; }
-log_success() { :; }
-EOF
-
-    cat > "$root_home/.gtbi/scripts/lib/gum_ui.sh" <<'EOF'
-#!/usr/bin/env bash
-HAS_GUM=false
-GTBI_ACCENT=x
-GTBI_PINK=x
-GTBI_MUTED=x
-GTBI_TEAL=x
-GTBI_PRIMARY=x
-GTBI_SUCCESS=x
-GTBI_ERROR=x
-print_compact_banner() { :; }
-gum_detail() { :; }
-gum_error() { echo "ROOT_GUM_ERROR:$*"; }
-gum_warn() { :; }
-gum_confirm() { return 1; }
-gum_completion() { :; }
-EOF
-
-    cat > "$target_home/.gtbi/scripts/lib/logging.sh" <<'EOF'
-#!/usr/bin/env bash
-log_error() { echo "TARGET_LOG_ERROR:$*"; }
-log_info() { :; }
-log_warn() { :; }
-log_success() { :; }
-EOF
-
-    cat > "$target_home/.gtbi/scripts/lib/gum_ui.sh" <<'EOF'
-#!/usr/bin/env bash
-HAS_GUM=false
-GTBI_ACCENT=x
-GTBI_PINK=x
-GTBI_MUTED=x
-GTBI_TEAL=x
-GTBI_PRIMARY=x
-GTBI_SUCCESS=x
-GTBI_ERROR=x
-print_compact_banner() { :; }
-gum_detail() { :; }
-gum_error() { echo "TARGET_GUM_ERROR:$*"; }
-gum_warn() { :; }
-gum_confirm() { return 1; }
-gum_completion() { :; }
-EOF
-
-    output=$(HOME="$root_home" TARGET_HOME="$target_home" TARGET_USER="$(whoami)" \
-        bash "$target_home/.gtbi/scripts/services-setup.sh" --install-claude-guard --yes 2>&1 || true)
-
-    if [[ "$output" == *"TARGET_GUM_ERROR:DCG not installed. Run the main installer first."* ]] \
-        && [[ "$output" != *"ROOT_GUM_ERROR:"* ]]; then
-        harness_pass "services-setup prefers target-home libs under root home"
-    else
-        harness_fail "services-setup prefers target-home libs under root home" "$output"
-    fi
-
-    cleanup_mock_env
-}
-
-test_services_setup_runs_target_user_commands_with_target_home() {
-    setup_mock_env
-
-    local root_home="$TEST_HOME/root-home"
-    local target_home="$TEST_HOME/target-home"
-    local output=""
-
-    mkdir -p \
-        "$root_home/.gtbi/scripts/lib" \
-        "$target_home/.gtbi/scripts/lib" \
-        "$target_home/.gtbi/scripts" \
-        "$target_home/.local/bin" \
-        "$target_home/.claude"
-
-    cp "$SERVICES_SETUP_SH" "$target_home/.gtbi/scripts/services-setup.sh"
-
-    cat > "$target_home/.gtbi/scripts/lib/logging.sh" <<'EOF'
-#!/usr/bin/env bash
-log_error() { echo "TARGET_LOG_ERROR:$*"; }
-log_info() { :; }
-log_warn() { :; }
-log_success() { :; }
-EOF
-
-    cat > "$target_home/.gtbi/scripts/lib/gum_ui.sh" <<'EOF'
-#!/usr/bin/env bash
-HAS_GUM=false
-GTBI_ACCENT=x
-GTBI_PINK=x
-GTBI_MUTED=x
-GTBI_TEAL=x
-GTBI_PRIMARY=x
-GTBI_SUCCESS=x
-GTBI_ERROR=x
-print_compact_banner() { :; }
-gum_box() { :; }
-gum_detail() { :; }
-gum_error() { echo "TARGET_GUM_ERROR:$*"; }
-gum_warn() { :; }
-gum_success() { :; }
-gum_confirm() { return 1; }
-gum_completion() { :; }
-EOF
-
-    cat > "$target_home/.local/bin/claude" <<'EOF'
-#!/usr/bin/env bash
-exit 0
-EOF
-    cat > "$target_home/.local/bin/dcg" <<'EOF'
-#!/usr/bin/env bash
-case "${1:-}" in
-    install)
-        mkdir -p "$HOME/.claude"
-        printf '{"hook":"dcg"}\n' > "$HOME/.claude/settings.json"
-        printf '%s\n' "$HOME" >> "${TARGET_HOME}/dcg-home.log"
-        exit 0
-        ;;
-    doctor)
-        printf '%s\n' "$HOME" >> "${TARGET_HOME}/dcg-home.log"
-        exit 0
-        ;;
-    *)
-        exit 0
-        ;;
-esac
-EOF
-    chmod +x "$target_home/.local/bin/claude" "$target_home/.local/bin/dcg"
-
-    output=$(HOME="$root_home" TARGET_HOME="$target_home" TARGET_USER="$(whoami)" \
-        PATH="$target_home/.local/bin:/usr/bin:/bin" \
-        bash "$target_home/.gtbi/scripts/services-setup.sh" --install-claude-guard --yes 2>&1 || true)
-
-    if [[ -f "$target_home/.claude/settings.json" ]] \
-        && [[ ! -f "$root_home/.claude/settings.json" ]] \
-        && [[ -f "$target_home/dcg-home.log" ]] \
-        && grep -Fxq "$target_home" "$target_home/dcg-home.log" \
-        && ! grep -Fxq "$root_home" "$target_home/dcg-home.log"; then
-        harness_pass "services-setup runs target-user commands with target HOME"
-    else
-        harness_fail "services-setup runs target-user commands with target HOME" "$output"
-    fi
-
-    cleanup_mock_env
-}
-
-test_services_setup_rejects_invalid_target_user_before_sudo() {
-    setup_mock_env
-
-    local root_home="$TEST_HOME/root-home"
-    local target_home="$TEST_HOME/target-home"
-    local fake_bin="$TEST_HOME/fake-bin"
-    local sudo_log="$TEST_HOME/sudo.log"
-    local output=""
-
-    mkdir -p "$root_home" "$target_home" "$fake_bin"
-
-    cat > "$fake_bin/sudo" <<EOF
-#!/usr/bin/env bash
-printf 'sudo-called\n' >> "$sudo_log"
-exit 0
-EOF
-    chmod +x "$fake_bin/sudo"
-
-    output=$(HOME="$root_home" TARGET_HOME="$target_home" PATH="$fake_bin:/usr/bin:/bin" \
-        bash -c 'source "$1"; TARGET_USER="../bad user"; run_as_user env' _ "$SERVICES_SETUP_SH" 2>&1 || true)
-
-    if [[ "$output" == *"Invalid TARGET_USER '../bad user'"* ]] \
-        && [[ ! -s "$sudo_log" ]]; then
-        harness_pass "services-setup rejects invalid TARGET_USER before sudo"
-    else
-        harness_fail "services-setup rejects invalid TARGET_USER before sudo" "$output"
-    fi
-
-    cleanup_mock_env
-}
-
-test_services_setup_globals_are_initialized_under_set_u() {
-    setup_mock_env
-
-    local output=""
-    output=$(bash -c '
-        set -u
-        load_services_setup() { source "$1"; }
-        load_services_setup "$1"
-        printf "services=%s\n" "${#SERVICE_STATUS[@]}"
-    ' _ "$SERVICES_SETUP_SH" 2>&1 || true)
-
-    if [[ "$output" == "services=0" ]]; then
-        harness_pass "services-setup initializes SERVICE_STATUS safely under set -u"
-    else
-        harness_fail "services-setup initializes SERVICE_STATUS safely under set -u" "$output"
-    fi
-
-    cleanup_mock_env
-}
-
-test_services_setup_repairs_stale_explicit_target_home_from_passwd() {
-    setup_mock_env
-
-    local stale_home="$TEST_HOME/stale-target-home"
-    local trusted_home="$TEST_HOME/trusted-target-home"
-    local output=""
-
-    mkdir -p "$stale_home" "$trusted_home"
-
-    output=$(HOME="$stale_home" TARGET_HOME="$stale_home" TRUSTED_TARGET_HOME="$trusted_home" \
-        bash -c '
-            set -euo pipefail
-            source "$1"
-            TARGET_USER="tester"
-            GTBI_BIN_DIR="$TARGET_HOME/.local/bin"
-            resolve_home_dir() { printf "%s" "$TRUSTED_TARGET_HOME"; }
-            find_user_bin() { return 1; }
-            init_target_context
-            printf "%s\n" "$TARGET_HOME"
-        ' _ "$SERVICES_SETUP_SH" 2>&1 || true)
-
-    if [[ "$output" == "$trusted_home" ]]; then
-        harness_pass "services-setup repairs stale explicit TARGET_HOME from passwd"
-    else
-        harness_fail "services-setup repairs stale explicit TARGET_HOME from passwd" "$output"
-    fi
-
-    cleanup_mock_env
-}
-
-test_services_setup_setup_flows_tolerate_unset_status_keys() {
-    setup_mock_env
-
-    local target_home="$TEST_HOME/setup-status-target"
-    local output=""
-    mkdir -p "$target_home/.bun/bin"
-    ln -sf /bin/true "$target_home/.bun/bin/vercel"
-    ln -sf /bin/true "$target_home/.bun/bin/wrangler"
-
-    output=$(bash -c '
-        set -u
-        source "$1"
-        TARGET_USER="$(whoami)"
-        TARGET_HOME="$2"
-        BUN_BIN=/bin/true
-        HAS_GUM=false
-        gum_confirm() { return 1; }
-        gum_box() { :; }
-        gum_detail() { :; }
-        gum_error() { :; }
-        gum_warn() { :; }
-        gum_success() { :; }
-        read() { return 0; }
-        find_user_bin() { printf "/bin/true\n"; }
-        run_as_user() { return 0; }
-        check_claude_status() { SERVICE_STATUS[claude]=configured; }
-        check_codex_status() { SERVICE_STATUS[codex]=configured; }
-        check_gemini_status() { SERVICE_STATUS[gemini]=configured; }
-        check_vercel_status() { SERVICE_STATUS[vercel]=configured; }
-        check_supabase_status() { SERVICE_STATUS[supabase]=configured; }
-        check_wrangler_status() { SERVICE_STATUS[wrangler]=configured; }
-        setup_claude </dev/null
-        setup_codex </dev/null
-        setup_gemini </dev/null
-        setup_vercel </dev/null
-        setup_supabase </dev/null
-        setup_wrangler </dev/null
-        printf "setup-ok\n"
-    ' _ "$SERVICES_SETUP_SH" "$target_home" 2>&1 || true)
-
-    if [[ "$output" == *"setup-ok"* ]]; then
-        harness_pass "services-setup setup flows tolerate unset SERVICE_STATUS keys under set -u"
-    else
-        harness_fail "services-setup setup flows tolerate unset SERVICE_STATUS keys under set -u" "$output"
-    fi
-
-    cleanup_mock_env
-}
-
-
-test_services_setup_find_user_bin_checks_system_paths() {
-    local output=""
-
-    if output=$(SERVICES_SETUP_SH="$SERVICES_SETUP_SH" bash <<'EOF'
-set -u
-tmp_dir="$(mktemp -d)"
-trap 'rm -rf "$tmp_dir"' EXIT
-export TARGET_USER="ubuntu"
-export TARGET_HOME="$tmp_dir/target-home"
-export GTBI_BIN_DIR="$TARGET_HOME/.local/bin"
-mkdir -p "$TARGET_HOME"
-# shellcheck source=/dev/null
-source "$SERVICES_SETUP_SH"
-
-if out="$(find_user_bin bash 2>/dev/null)"; then
-    printf 'path=%s\n' "$out"
-else
-    printf 'rc=%s\n' "$?"
-fi
-EOF
-    ); then
-        if [[ "$output" == "/usr/bin/bash" || "$output" == "/bin/bash" || "$output" == path=/usr/bin/bash || "$output" == path=/bin/bash ]]; then
-            harness_pass "services-setup find_user_bin checks system paths"
-        else
-            harness_fail "services-setup find_user_bin checks system paths" "$output"
-        fi
-    else
-        harness_fail "services-setup find_user_bin checks system paths"
-    fi
-}
-
-
-test_services_setup_repairs_invalid_bun_bin_from_target_user_paths() {
-    local output=""
-
-    if output=$(SERVICES_SETUP_SH="$SERVICES_SETUP_SH" bash <<'EOF'
-set -u
-tmp_dir="$(mktemp -d)"
-trap 'rm -rf "$tmp_dir"' EXIT
-target_home="$tmp_dir/target-home"
-mkdir -p "$target_home/.local/bin"
-cat > "$target_home/.local/bin/bun" <<'SCRIPT'
-#!/usr/bin/env bash
-exit 0
-SCRIPT
-chmod +x "$target_home/.local/bin/bun"
-export TARGET_USER="ubuntu"
-export TARGET_HOME="$target_home"
-export GTBI_BIN_DIR="$target_home/.local/bin"
-export BUN_BIN="$target_home/.bun/bin/bun"
-# shellcheck source=/dev/null
-source "$SERVICES_SETUP_SH"
-
-if ! init_target_context; then
-    printf 'init-failed\n'
-    exit 1
-fi
-
-if [[ "$BUN_BIN" == "$target_home/.local/bin/bun" ]]; then
-    printf 'resolved\n'
-else
-    printf 'bun=%s\n' "$BUN_BIN"
-fi
-EOF
-    ); then
-        if [[ "$output" == "resolved" ]]; then
-            harness_pass "services-setup repairs invalid BUN_BIN from target-user paths"
-        else
-            harness_fail "services-setup repairs invalid BUN_BIN from target-user paths" "$output"
-        fi
-    else
-        harness_fail "services-setup repairs invalid BUN_BIN from target-user paths"
-    fi
-}
-
-test_services_setup_cloud_clis_use_find_user_bin() {
-    local output=""
-
-    if output=$(SERVICES_SETUP_SH="$SERVICES_SETUP_SH" bash <<'EOF'
-set -u
-tmp_dir="$(mktemp -d)"
-trap 'rm -rf "$tmp_dir"' EXIT
-target_home="$tmp_dir/target-home"
-mkdir -p "$target_home/.local/bin"
-for tool in vercel wrangler; do
-    cat > "$target_home/.local/bin/$tool" <<'SCRIPT'
-#!/usr/bin/env bash
-exit 0
-SCRIPT
-    chmod +x "$target_home/.local/bin/$tool"
-done
-export TARGET_USER="ubuntu"
-export TARGET_HOME="$target_home"
-export GTBI_BIN_DIR="$target_home/.local/bin"
-export BUN_BIN="/bin/true"
-# shellcheck source=/dev/null
-source "$SERVICES_SETUP_SH"
-
-HAS_GUM=false
-gum_confirm() { return 0; }
-gum_box() { :; }
-gum_detail() { :; }
-gum_error() { printf 'error:%s\n' "$*"; }
-gum_warn() { :; }
-gum_success() { :; }
-read() { return 0; }
-run_as_user() { return 1; }
-
-check_vercel_status
-check_wrangler_status
-printf 'statuses=%s,%s\n' "${SERVICE_STATUS[vercel]:-missing}" "${SERVICE_STATUS[wrangler]:-missing}"
-
-run_as_user() {
-    printf '%s\n' "$1" >> "$target_home/run.log"
-    return 0
-}
-
-setup_vercel </dev/null
-setup_wrangler </dev/null
-
-if [[ -f "$target_home/run.log" ]]; then
-    cat "$target_home/run.log"
-fi
-EOF
-    ); then
-        if [[ "$output" == *"statuses=installed,installed"* ]]             && [[ "$output" == *"/target-home/.local/bin/vercel"* ]]             && [[ "$output" == *"/target-home/.local/bin/wrangler"* ]]             && [[ "$output" != *"error:Vercel CLI not installed"* ]]             && [[ "$output" != *"error:Wrangler (Cloudflare) CLI not installed"* ]]; then
-            harness_pass "services-setup cloud CLIs resolve via find_user_bin"
-        else
-            harness_fail "services-setup cloud CLIs resolve via find_user_bin" "$output"
-        fi
-    else
-        harness_fail "services-setup cloud CLIs resolve via find_user_bin"
-    fi
 }
 
 test_stack_is_installed_handles_unknown_tool_under_set_u() {
@@ -4595,64 +4163,6 @@ test_cheatsheet_repo_local_prefers_system_state_target_user_over_stale_installed
     cleanup_mock_env
 }
 
-test_services_setup_find_user_bin_ignores_other_user_home_bin_dir_override() {
-    setup_cross_home_bin_dir_env
-
-    local tool_name="services-cross-home-tool"
-    write_fake_command "$TEST_TARGET_HOME/.local/bin/$tool_name" "target"
-    write_fake_command "$STALE_HOME/.local/bin/$tool_name" "stale"
-
-    local output=""
-    output=$(HOME="$TEST_ROOT_HOME" TARGET_HOME="$TEST_TARGET_HOME" TARGET_USER="$(id -un 2>/dev/null || whoami 2>/dev/null)" \
-        GTBI_BIN_DIR="$STALE_HOME/.local/bin" TEST_SERVICES_SCRIPT="$SERVICES_SETUP_SH" TEST_TOOL_NAME="$tool_name" \
-        bash <<'EOF'
-set -u
-source "$TEST_SERVICES_SCRIPT"
-if out="$(find_user_bin "$TEST_TOOL_NAME" 2>/dev/null)"; then
-    printf '%s\n' "$out"
-else
-    printf 'rc=%s\n' "$?"
-fi
-EOF
-)
-
-    if [[ "$output" == "$TEST_TARGET_HOME/.local/bin/$tool_name" ]]; then
-        harness_pass "services-setup find_user_bin ignores other-user home bin_dir override"
-    else
-        harness_fail "services-setup find_user_bin ignores other-user home bin_dir override" "$output"
-    fi
-
-    cleanup_mock_env
-}
-
-test_services_setup_init_target_context_repairs_stale_other_user_bun_bin() {
-    setup_cross_home_bin_dir_env
-
-    write_fake_command "$STALE_HOME/.local/bin/bun" "stale bun"
-
-    local output=""
-    output=$(HOME="$TEST_ROOT_HOME" TARGET_HOME="$TEST_TARGET_HOME" TARGET_USER="$(id -un 2>/dev/null || whoami 2>/dev/null)" \
-        GTBI_BIN_DIR="$STALE_HOME/.local/bin" BUN_BIN="$STALE_HOME/.local/bin/bun" TEST_SERVICES_SCRIPT="$SERVICES_SETUP_SH" \
-        bash <<'EOF'
-set -u
-source "$TEST_SERVICES_SCRIPT"
-if ! init_target_context; then
-    printf 'init-failed\n'
-    exit 1
-fi
-printf 'bun=%s\n' "$BUN_BIN"
-EOF
-)
-
-    if [[ "$output" == "bun=$TEST_TARGET_HOME/.bun/bin/bun" ]]; then
-        harness_pass "services-setup init_target_context repairs stale other-user BUN_BIN"
-    else
-        harness_fail "services-setup init_target_context repairs stale other-user BUN_BIN" "$output"
-    fi
-
-    cleanup_mock_env
-}
-
 test_cli_tools_ignore_other_user_home_bin_dir_override() {
     setup_cross_home_bin_dir_env
 
@@ -4727,7 +4237,7 @@ test_language_cloud_ignore_other_user_home_bin_dir_override() {
 
     local output=""
     output=$(HOME="$TEST_ROOT_HOME" TARGET_HOME="$target_home" TARGET_USER="$target_user" \
-        GTBI_BIN_DIR="$stale_home/.local/bin" TEST_LANGUAGES_SCRIPT="$LANGUAGES_SH" TEST_CLOUD_DB_SCRIPT="$CLOUD_DB_SH" \
+        GTBI_BIN_DIR="$stale_home/.local/bin" TEST_LANGUAGES_SCRIPT="$LANGUAGES_SH" \
         TEST_TARGET_USER="$target_user" TEST_TARGET_HOME="$target_home" TEST_STALE_HOME="$stale_home" \
         bash <<'EOF'
 set -u
@@ -4754,17 +4264,13 @@ source "$TEST_LANGUAGES_SCRIPT"
 _lang_resolve_current_user() { printf '%s\n' "$TEST_TARGET_USER"; }
 _lang_getent_passwd_entry() { emit_test_passwd_entry "${1-}"; }
 _lang_run_as_user 'printf "lang=%s\n" "${GTBI_BIN_DIR:-}"'
-source "$TEST_CLOUD_DB_SCRIPT"
-_cloud_resolve_current_user() { printf '%s\n' "$TEST_TARGET_USER"; }
-_cloud_getent_passwd_entry() { emit_test_passwd_entry "${1-}"; }
-_cloud_run_as_user 'printf "cloud=%s\n" "${GTBI_BIN_DIR:-}"'
 EOF
 )
 
-    if [[ "$output" == $'lang='"$target_home/.local/bin"$'\ncloud='"$target_home/.local/bin" ]]; then
-        harness_pass "language/cloud run_as_user ignore other-user home bin_dir override"
+    if [[ "$output" == "lang=$target_home/.local/bin" ]]; then
+        harness_pass "language run_as_user ignores other-user home bin_dir override"
     else
-        harness_fail "language/cloud run_as_user ignore other-user home bin_dir override" "$output"
+        harness_fail "language run_as_user ignores other-user home bin_dir override" "$output"
     fi
 
     cleanup_mock_env
@@ -8186,7 +7692,6 @@ test_gtbi_system_binary_resolvers_cover_usr_local() {
     done <<EOF
 install|$REPO_ROOT/install.sh|gtbi_early_system_binary_path|name
 preflight|$REPO_ROOT/scripts/preflight.sh|preflight_system_binary_path|name
-services-setup|$REPO_ROOT/scripts/services-setup.sh|services_setup_system_binary_path|name
 install-workflow|$REPO_ROOT/scripts/install-gtbi-workflow.sh|workflow_system_binary_path|name
 gtbi-update|$REPO_ROOT/scripts/gtbi-update|system_binary_path|name
 gtbi-global|$REPO_ROOT/scripts/gtbi-global|system_binary_path|name
@@ -8197,7 +7702,6 @@ update-system-lib|$REPO_ROOT/scripts/lib/update.sh|update_system_binary_path|nam
 cli-tools-lib|$REPO_ROOT/scripts/lib/cli_tools.sh|_cli_system_binary_path|name
 agents-lib|$REPO_ROOT/scripts/lib/agents.sh|_agent_system_binary_path|name
 languages-lib|$REPO_ROOT/scripts/lib/languages.sh|_lang_system_binary_path|name
-cloud-db-lib|$REPO_ROOT/scripts/lib/cloud_db.sh|_cloud_system_binary_path|name
 stack-lib|$REPO_ROOT/scripts/lib/stack.sh|_stack_system_binary_path|name
 autofix-lib|$REPO_ROOT/scripts/lib/autofix.sh|autofix_system_binary_path|name
 changelog-lib|$REPO_ROOT/scripts/lib/changelog.sh|changelog_system_binary_path|name
@@ -8246,7 +7750,6 @@ EOF
     done <<EOF
 install-target-lookup|$REPO_ROOT/install.sh|binary_path|name
 preflight-target-lookup|$REPO_ROOT/scripts/preflight.sh|preflight_binary_path|name
-services-setup-target-lookup|$REPO_ROOT/scripts/services-setup.sh|find_user_bin|name
 cli-tools-target-lookup|$REPO_ROOT/scripts/lib/cli_tools.sh|_cli_target_has_command|cmd
 stack-target-lookup|$REPO_ROOT/scripts/lib/stack.sh|_stack_target_command_path|cmd
 update-target-lookup|$REPO_ROOT/scripts/lib/update.sh|update_binary_path|tool
@@ -8306,7 +7809,6 @@ update-early-lib|$REPO_ROOT/scripts/lib/update.sh|_update_early_system_binary_pa
 update-system-lib|$REPO_ROOT/scripts/lib/update.sh|update_system_binary_path
 stack-lib|$REPO_ROOT/scripts/lib/stack.sh|_stack_system_binary_path
 agents-lib|$REPO_ROOT/scripts/lib/agents.sh|_agent_system_binary_path
-cloud-db-lib|$REPO_ROOT/scripts/lib/cloud_db.sh|_cloud_system_binary_path
 notify-lib|$REPO_ROOT/scripts/lib/notify.sh|_gtbi_notify_system_binary_path
 notifications-lib|$REPO_ROOT/scripts/lib/notifications.sh|notifications_system_binary_path
 webhook-lib|$REPO_ROOT/scripts/lib/webhook.sh|webhook_system_binary_path
@@ -11175,11 +10677,11 @@ test_runtime_helpers_do_not_guess_home_paths_from_usernames() {
             "$CONTINUE_SH" "$DASHBOARD_SH" "$INFO_SH" "$CHANGELOG_SH" "$EXPORT_CONFIG_SH" \
             "$STATUS_SH" "$SUPPORT_SH" "$CHEATSHEET_SH" "$DOCTOR_SH" \
             "$REPO_ROOT/scripts/lib/doctor_fix.sh" "$NOTIFY_SH" "$NOTIFICATIONS_SH" \
-            "$WEBHOOK_SH" "$SMOKE_TEST_SH" "$STATE_SH" "$SERVICES_SETUP_SH" "$PREFLIGHT_SH" "$ONBOARD_SH" 2>/dev/null || true
+            "$WEBHOOK_SH" "$SMOKE_TEST_SH" "$STATE_SH" "$PREFLIGHT_SH" "$ONBOARD_SH" 2>/dev/null || true
         grep -RFn 'echo "/home/$user"' \
             "$CONTINUE_SH" "$DASHBOARD_SH" "$INFO_SH" "$CHANGELOG_SH" "$EXPORT_CONFIG_SH" \
             "$STATUS_SH" "$SUPPORT_SH" "$CHEATSHEET_SH" 2>/dev/null || true
-        grep -RFn "printf '/home/%s' \"\\\$user\"" "$SERVICES_SETUP_SH" "$ONBOARD_SH" "$AUTOFIX_SH" 2>/dev/null || true
+        grep -RFn "printf '/home/%s' \"\\\$user\"" "$ONBOARD_SH" "$AUTOFIX_SH" 2>/dev/null || true
         grep -RFn "printf '/home/%s\\n' \"\\\$TARGET_USER\"" "$STATE_SH" 2>/dev/null || true
         grep -RFn "printf '/home/%s\\n' \"\\\$target_user\"" "$PREFLIGHT_SH" "$UBUNTU_UPGRADE_SH" 2>/dev/null || true
         grep -RFn 'TARGET_HOME="/home/$TARGET_USER"' "$SMOKE_TEST_SH" 2>/dev/null || true
@@ -11523,18 +11025,6 @@ main() {
     test_changelog_defaults_to_last_updated || true
     test_changelog_rejects_invalid_duration || true
 
-    harness_section "Services Setup"
-    test_services_setup_prefers_target_home_libs_under_root_home || true
-    test_services_setup_runs_target_user_commands_with_target_home || true
-    test_services_setup_rejects_invalid_target_user_before_sudo || true
-    test_services_setup_globals_are_initialized_under_set_u || true
-    test_services_setup_repairs_stale_explicit_target_home_from_passwd || true
-    test_services_setup_setup_flows_tolerate_unset_status_keys || true
-    test_services_setup_find_user_bin_checks_system_paths || true
-    test_services_setup_find_user_bin_ignores_other_user_home_bin_dir_override || true
-    test_services_setup_repairs_invalid_bun_bin_from_target_user_paths || true
-    test_services_setup_init_target_context_repairs_stale_other_user_bun_bin || true
-    test_services_setup_cloud_clis_use_find_user_bin || true
     test_language_cloud_ignore_other_user_home_bin_dir_override || true
 
     harness_section "Stack"

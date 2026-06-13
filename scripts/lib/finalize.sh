@@ -96,15 +96,6 @@ finalize() {
     try_step "Installing capacity.sh" install_asset "scripts/lib/capacity.sh" "$GTBI_HOME/scripts/lib/capacity.sh" || return 1
     try_step "Installing policy_lint.sh" install_asset "scripts/lib/policy_lint.sh" "$GTBI_HOME/scripts/lib/policy_lint.sh" || return 1
     try_step "Installing credential_preflight.sh" install_asset "scripts/lib/credential_preflight.sh" "$GTBI_HOME/scripts/lib/credential_preflight.sh" || return 1
-    try_step "Installing swarm_plan.sh" install_asset "scripts/lib/swarm_plan.sh" "$GTBI_HOME/scripts/lib/swarm_plan.sh" || return 1
-    try_step "Installing swarm_status.sh" install_asset "scripts/lib/swarm_status.sh" "$GTBI_HOME/scripts/lib/swarm_status.sh" || return 1
-    try_step "Installing swarm_doctor.sh" install_asset "scripts/lib/swarm_doctor.sh" "$GTBI_HOME/scripts/lib/swarm_doctor.sh" || return 1
-    try_step "Installing swarm_simulation.sh" install_asset "scripts/lib/swarm_simulation.sh" "$GTBI_HOME/scripts/lib/swarm_simulation.sh" || return 1
-    try_step "Installing swarm_packet.sh" install_asset "scripts/lib/swarm_packet.sh" "$GTBI_HOME/scripts/lib/swarm_packet.sh" || return 1
-    try_step "Installing swarm_assign.sh" install_asset "scripts/lib/swarm_assign.sh" "$GTBI_HOME/scripts/lib/swarm_assign.sh" || return 1
-    try_step "Installing swarm_convergence.sh" install_asset "scripts/lib/swarm_convergence.sh" "$GTBI_HOME/scripts/lib/swarm_convergence.sh" || return 1
-    try_step "Installing swarm_calibration.sh" install_asset "scripts/lib/swarm_calibration.sh" "$GTBI_HOME/scripts/lib/swarm_calibration.sh" || return 1
-    try_step "Installing swarm_inventory.sh" install_asset "scripts/lib/swarm_inventory.sh" "$GTBI_HOME/scripts/lib/swarm_inventory.sh" || return 1
     try_step "Installing landing_plane.sh" install_asset "scripts/lib/landing_plane.sh" "$GTBI_HOME/scripts/lib/landing_plane.sh" || return 1
     try_step "Installing provenance.sh" install_asset "scripts/lib/provenance.sh" "$GTBI_HOME/scripts/lib/provenance.sh" || return 1
     try_step "Installing offline_artifact_pack.sh" install_asset "scripts/lib/offline_artifact_pack.sh" "$GTBI_HOME/scripts/lib/offline_artifact_pack.sh" || return 1
@@ -150,9 +141,6 @@ finalize() {
         log_warn "Root AGENTS.md generator not found; skipping /AGENTS.md generation"
     fi
 
-    # Install services-setup wizard
-    try_step "Installing services-setup.sh" install_asset "scripts/services-setup.sh" "$GTBI_HOME/scripts/services-setup.sh" || return 1
-    try_step "Setting scripts permissions" $SUDO chmod 755 "$GTBI_HOME/scripts/services-setup.sh" || return 1
     try_step "Setting lib scripts permissions" $SUDO chmod 755 "$GTBI_HOME/scripts/lib/"*.sh "$GTBI_HOME/scripts/nightly-update.sh" || return 1
     try_step "Setting generated scripts permissions" $SUDO find "$GTBI_HOME/scripts/generated" -maxdepth 1 -type f -name '*.sh' -exec chmod 755 {} + || return 1
     try_step "Setting scripts ownership" gtbi_chown_tree "$TARGET_USER:$TARGET_USER" "$GTBI_HOME/scripts" || return 1

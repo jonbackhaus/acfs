@@ -1728,42 +1728,6 @@ capture_doctor_json() {
     fi
 }
 
-# Capture local swarm status JSON output.
-# Usage: capture_swarm_status_json <bundle_dir>
-capture_swarm_status_json() {
-    local bundle_dir="$1"
-
-    local swarm_status_script=""
-    if [[ -n "$_SUPPORT_GTBI_HOME" ]] && [[ -f "$_SUPPORT_GTBI_HOME/scripts/lib/swarm_status.sh" ]]; then
-        swarm_status_script="$_SUPPORT_GTBI_HOME/scripts/lib/swarm_status.sh"
-    elif [[ -f "$_SUPPORT_SCRIPT_DIR/swarm_status.sh" ]]; then
-        swarm_status_script="$_SUPPORT_SCRIPT_DIR/swarm_status.sh"
-    fi
-
-    if [[ -z "$swarm_status_script" ]]; then
-        log_warn "swarm_status.sh not found, skipping swarm status"
-        return 1
-    fi
-
-    log_detail "Running gtbi swarm status --json ..."
-    local timeout_bin=""
-    timeout_bin="$(support_system_binary_path timeout 2>/dev/null || command -v timeout 2>/dev/null || true)"
-    if [[ -n "$timeout_bin" ]]; then
-        if "$timeout_bin" "$SWARM_STATUS_TIMEOUT" bash "$swarm_status_script" --json > "$bundle_dir/swarm_status.json" 2>/dev/null; then
-            record_bundle_file "swarm_status.json"
-            return 0
-        fi
-    elif bash "$swarm_status_script" --json > "$bundle_dir/swarm_status.json" 2>/dev/null; then
-        record_bundle_file "swarm_status.json"
-        return 0
-    fi
-
-    log_warn "Swarm status check timed out or failed"
-    echo '{"error": "swarm status check failed or timed out"}' > "$bundle_dir/swarm_status.json"
-    record_bundle_file "swarm_status.json"
-    return 1
-}
-
 # Capture installed-tool provenance ledger JSON.
 # Usage: capture_provenance_json <bundle_dir>
 capture_provenance_json() {
@@ -3063,7 +3027,6 @@ main() {
     capture_doctor_json "$bundle_dir" || true
     capture_checkpoint_summary_json "$bundle_dir" || true
     capture_local_progress_json "$bundle_dir" || true
-    capture_swarm_status_json "$bundle_dir" || true
     capture_provenance_json "$bundle_dir" || true
     capture_resource_profile_json "$bundle_dir" || true
     capture_swarm_inventory_json "$bundle_dir" || true

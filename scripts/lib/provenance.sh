@@ -2,7 +2,7 @@
 # ============================================================
 # GTBI Tool Provenance - local installed-tool ledger
 #
-# Read-only JSON ledger for support bundles and swarm diagnostics.
+# Read-only JSON ledger for support bundles.
 # No network calls are made; unknown provenance is reported explicitly.
 # ============================================================
 

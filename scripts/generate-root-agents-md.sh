@@ -104,7 +104,6 @@ AGENTS.md, and `.beads/` directory for local issue tracking.
   beads_rust/             # Issue tracker CLI (Rust)
   coding_agent_session_search/  # Session search (Rust)
   gastown_batteries_included/  # VPS setup & scripts (Bash/TS)
-  mcp_agent_mail/         # Agent coordination server (Rust)
   ...
 ```
 
