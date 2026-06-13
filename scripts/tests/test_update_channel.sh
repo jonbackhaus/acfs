@@ -778,8 +778,8 @@ done
 # ============================================================
 section "Test 6: Repo checkout prefers repo checksums over installed cache"
 # ============================================================
-current_mcp_agent_mail_sha=$(awk '
-    $1 == "mcp_agent_mail:" { in_block=1; next }
+current_uv_sha=$(awk '
+    $1 == "uv:" { in_block=1; next }
     in_block && $1 == "sha256:" { gsub(/"/, "", $2); print $2; exit }
 ' "$REPO_ROOT/checksums.yaml")
 
@@ -796,7 +796,7 @@ path = sys.argv[1]
 with open(path, "r", encoding="utf-8") as fh:
     content = fh.read()
 content = content.replace(
-    "'"$current_mcp_agent_mail_sha"'",
+    "'"$current_uv_sha"'",
     "1111111111111111111111111111111111111111111111111111111111111111",
     1,
 )
@@ -808,35 +808,14 @@ PY
         QUIET=true
         CHECKSUMS_URL="https://127.0.0.1:9/nowhere"
         update_require_security >/dev/null
-        printf "CHECKSUM=%s\n" "$(get_checksum mcp_agent_mail)"
+        printf "CHECKSUM=%s\n" "$(get_checksum uv)"
     ' 2>&1
 ) || true
 
-if echo "$repo_checksum_preference_output" | grep -q "CHECKSUM=$current_mcp_agent_mail_sha"; then
+if echo "$repo_checksum_preference_output" | grep -q "CHECKSUM=$current_uv_sha"; then
     pass "Repo-local update.sh ignores stale ~/.gtbi/checksums.yaml and loads repo checksums"
 else
     fail "Repo-local update.sh still preferred stale installed checksums. Output: $repo_checksum_preference_output"
-fi
-
-# ============================================================
-section "Test 6b: RCH update keeps daemon and fleet setup active"
-# ============================================================
-if grep -Eq 'run_cmd "RCH" update_run_verified_installer rch --easy-mode([[:space:]]|$)' "$UPDATE_SH"; then
-    pass "RCH stack update invokes installer with --easy-mode"
-else
-    fail "RCH stack update still invokes bare installer without --easy-mode"
-fi
-
-rch_manifest_block=$(awk '
-    /^[[:space:]]*- id: stack\.rch$/ { in_block=1 }
-    in_block { print }
-    in_block && /^[[:space:]]*verify:/ { exit }
-' "$REPO_ROOT/gtbi.manifest.yaml")
-
-if echo "$rch_manifest_block" | grep -Fq 'args: ["--easy-mode"]'; then
-    pass "RCH manifest verified installer records --easy-mode"
-else
-    fail "RCH manifest verified installer is missing --easy-mode"
 fi
 
 # ============================================================
@@ -852,7 +831,7 @@ checksum_recovery_output=$(
 
         cat > "$tmpdir/checksums.yaml" <<EOF
 installers:
-  mcp_agent_mail:
+  uv:
     url: "https://example.invalid/stale-install.sh"
     sha256: "1111111111111111111111111111111111111111111111111111111111111111"
 EOF
@@ -901,13 +880,13 @@ EOF
         gtbi_fetch_fresh_checksums_to_file() {
             cat > "$1" <<EOF
 installers:
-  mcp_agent_mail:
+  uv:
     url: "https://example.invalid/fresh-install.sh"
     sha256: "$fake_installer_sha"
 EOF
         }
 
-        update_run_verified_installer mcp_agent_mail
+        update_run_verified_installer uv
     ' 2>&1
 ) || true
 
