@@ -57,17 +57,16 @@ The installer is **idempotent**—if interrupted, simply re-run it. It will auto
 
 **Why you'd care:**
 - **Zero to Hero:** Takes complete beginners from "I have a laptop" to "I have Claude/Codex/Gemini agents writing code for me on a VPS"
-- **One-Liner Magic:** A single `curl | bash` command installs 30+ tools, configures everything, and sets up three AI coding agents
+- **One-Liner Magic:** A single `curl | bash` command installs the toolchain, configures everything, and sets up the AI coding agents
 - **Vibe Mode:** Pre-configured for maximum velocity—passwordless sudo, dangerous agent flags enabled, optimized shell environment
-- **Battle-Tested Stack:** Includes the complete Dicklesworthstone stack (10 tools + utilities) for agent orchestration, coordination, and safety
+- **Agent Stack:** Local-first, Dolt-backed issue tracking and orchestration (beads + Gastown) for multi-agent workflows
 
 **What you get:**
 - Modern shell (zsh + oh-my-zsh + powerlevel10k)
-- All language runtimes (bun, uv/Python, Rust, Go)
-- Three AI coding agents (Claude Code, Codex CLI, Gemini CLI)
-- Agent coordination tools (NTM, MCP Agent Mail, SLB)
-- Cloud CLIs (Vault, Wrangler, Supabase, Vercel)
-- And 20+ more developer tools
+- Language runtimes (bun, uv/Python, Rust, Go, Node via nvm)
+- AI coding agents (Claude Code, Codex CLI, Gemini CLI; OpenCode optional)
+- Agent stack (Dolt + beads + Gastown)
+- A curated set of modern CLI/dev tools
 
 ---
 
@@ -159,9 +158,9 @@ flowchart TB
     Verify["Verified upstream installers<br/>(security.sh + checksums.yaml)"]
     GtbiHome["~/.gtbi/<br/>configs + scripts + state.json"]
     Commands["Commands<br/>gtbi doctor / gtbi update / gtbi services-setup / onboard"]
-    Tools["Installed tools<br/>bun/uv/rust/go + tmux/rg/gh + vault + ..."]
-    Agents["Agent CLIs<br/>claude / codex / gemini"]
-    Stack["Stack tools<br/>ntm / mcp_agent_mail / ubs / bv / cass / cm / caam / slb / dcg / ru"]
+    Tools["Installed tools<br/>bun/uv/rust/go/nvm + tmux/rg/gh + ..."]
+    Agents["Agent CLIs<br/>claude / codex / gemini / opencode"]
+    Stack["Agent stack<br/>dolt / bd (beads) / gt (Gastown)"]
   end
 
   %% How users fetch/run the installer
@@ -442,21 +441,20 @@ curl -fsSL "https://raw.githubusercontent.com/jonbackhaus/gtbi/main/install.sh" 
 graph TD
     %%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#e8f5e9', 'lineColor': '#90a4ae'}}}%%
 
-    A["Phase 1: User Normalization<br/><small>Create ubuntu user, migrate SSH keys</small>"]
-    B["Phase 2: APT Packages<br/><small>Essential system packages</small>"]
-    C["Phase 3: Shell Setup<br/><small>zsh, oh-my-zsh, powerlevel10k</small>"]
-    D["Phase 4: CLI Tools<br/><small>ripgrep, fzf, lazygit, etc.</small>"]
-    E["Phase 5: Language Runtimes<br/><small>bun, uv, rust, go</small>"]
-    F["Phase 6: AI Agents<br/><small>claude, codex, gemini</small>"]
-    G["Phase 7: Cloud Tools<br/><small>vault, wrangler, supabase, vercel</small>"]
-    H["Phase 8: Dicklesworthstone Stack<br/><small>ntm, dcg, ru, ubs, mcp_agent_mail, etc.</small>"]
-    I["Phase 9: Configuration<br/><small>Deploy gtbi.zshrc, tmux.conf</small>"]
-    J["Phase 10: Verification<br/><small>gtbi doctor</small>"]
+    A["Phase 1: System Base<br/><small>APT bootstrap, essential packages</small>"]
+    B["Phase 2: User Normalization<br/><small>Create ubuntu user, migrate SSH keys</small>"]
+    C["Phase 3: Filesystem<br/><small>Workspace dirs, permissions</small>"]
+    D["Phase 4: Shell Setup<br/><small>zsh, oh-my-zsh, powerlevel10k</small>"]
+    E["Phase 5: CLI &amp; Networking<br/><small>ripgrep, fzf, lazygit/lazydocker, tailscale</small>"]
+    F["Phase 6: Languages &amp; Tools<br/><small>bun, uv, rust, go, nvm, atuin, zoxide, ast-grep</small>"]
+    G["Phase 7: AI Agents<br/><small>claude, codex, gemini, opencode</small>"]
+    H["Phase 9: Agent Stack<br/><small>dolt, bd (beads), gt (Gastown)</small>"]
+    I["Phase 10: GTBI Lifecycle<br/><small>workspace, onboard, update, nightly, doctor</small>"]
 
-    A --> B --> C --> D --> E --> F --> G --> H --> I --> J
+    A --> B --> C --> D --> E --> F --> G --> H --> I
 
     classDef phase fill:#e8f5e9,stroke:#81c784,stroke-width:2px,color:#2e7d32
-    class A,B,C,D,E,F,G,H,I,J phase
+    class A,B,C,D,E,F,G,H,I phase
 ```
 
 ### Key Properties
@@ -618,9 +616,7 @@ gtbi-update --bootstrap-self-update
 | **Runtime** | Go | `apt upgrade` (if apt-managed) |
 | **Agents** | Claude Code | `claude update --channel latest` |
 | **Agents** | Codex, Gemini | `bun install -g @latest` |
-| **Cloud** | Wrangler, Vercel | `bun install -g @latest` |
-| **Cloud** | Supabase | GitHub release tarball (sha256 checksums) |
-| **Stack** | ntm, slb, ubs, dcg, ru, etc. | Re-run upstream installers |
+| **Stack** | Dolt, beads, Gastown | Re-run verified installers |
 
 ### Options
 
@@ -631,7 +627,7 @@ gtbi-update --bootstrap-self-update
 --cloud-only     Only update cloud CLIs
 --shell-only     Only update shell tools (OMZ, P10K, plugins, Atuin, Zoxide)
 --runtime-only   Only update runtimes (bun, rust, uv, go)
---stack          Include Dicklesworthstone stack (enabled by default)
+--stack          Include the agent stack (dolt, beads, Gastown; enabled by default)
 ```
 
 **Skip Categories:**
@@ -815,7 +811,8 @@ Example output:
 ║    cc    → Claude Code (dangerous mode)                       ║
 ║    cod   → Codex CLI (dangerous mode)                         ║
 ║    gmi   → Gemini CLI (yolo mode)                             ║
-║    ntm   → Named Tmux Manager                                 ║
+║    bd    → beads issue tracker                                ║
+║    gt    → Gastown orchestrator                               ║
 ╚══════════════════════════════════════════════════════════════╝
 ```
 
@@ -892,9 +889,6 @@ Guides you through:
 - **Codex CLI**: ChatGPT account login
 - **Gemini CLI**: Google account authentication
 - **GitHub CLI**: `gh auth login`
-- **Cloud CLIs**: Wrangler, Supabase, Vercel authentication
-
-Also offers to install **DCG (Destructive Command Guard)**, a Claude Code hook that blocks destructive commands like `rm -rf /`.
 
 ### `gtbi continue` — Upgrade Progress
 
@@ -929,7 +923,7 @@ onboard --reset        # Alias for reset
 
 ### Lessons
 
-Run `onboard --help` to see the currently discovered lesson list. The curriculum currently spans Linux basics, SSH, tmux, agent login, NTM, the flywheel workflow, updating, Beads, RCH, and other GTBI tools. Because lessons are discovered by filename, adding a new `NN_name.md` file automatically extends the tutorial.
+Run `onboard --help` to see the currently discovered lesson list. The curriculum covers Linux and SSH basics, tmux, agent login, the flywheel workflow, keeping the system updated, the beads issue tracker, and other GTBI tools. Because lessons are discovered by filename, adding a new `NN_name.md` file automatically extends the tutorial.
 
 ### Progress Tracking
 
@@ -953,7 +947,7 @@ If [Charmbracelet Gum](https://github.com/charmbracelet/gum) is installed, the o
 
 ## Tools Installed
 
-GTBI installs a comprehensive suite of **30+ tools** organized into categories:
+GTBI installs a curated set of tools organized into categories:
 
 ### Shell & Terminal UX
 
@@ -976,6 +970,7 @@ GTBI installs a comprehensive suite of **30+ tools** organized into categories:
 | **uv** | `uv` | Fast Python package manager |
 | **Rust** | `cargo` | Rust toolchain |
 | **Go** | `go` | Go toolchain |
+| **nvm** | `nvm` | Node version manager (installs Node LTS) |
 
 ### Dev Tools
 
@@ -983,14 +978,22 @@ GTBI installs a comprehensive suite of **30+ tools** organized into categories:
 |------|---------|-------------|
 | **tmux** | `tmux` | Terminal multiplexer |
 | **ripgrep** | `rg` | Fast recursive grep |
+| **fd** | `fd` (`fdfind`) | Fast, user-friendly find |
 | **ast-grep** | `sg` | Structural code search |
 | **lazygit** | `lg` (aliased) | Git TUI |
+| **lazydocker** | `lzd` (aliased) | Docker TUI |
 | **GitHub CLI** | `gh` | GitHub auth, issues, PRs |
 | **Git LFS** | `git-lfs` | Large file support for Git |
 | **bat** | `cat` (aliased) | Cat with syntax highlighting |
+| **lsd / eza** | `ls` (aliased) | Modern ls with icons |
+| **btop** | `btop` | Resource monitor |
+| **dust** | `dust` | Intuitive disk usage |
 | **neovim** | `nvim` | Modern vim |
 | **jq** | `jq` | JSON processor |
+| **sqlite3** | `sqlite3` | Embedded SQL database |
 | **rsync** | `rsync` | Fast file sync/copy |
+| **direnv** | - | Directory-specific env vars |
+| **Docker** | `docker` | Containers + compose plugin |
 | **lsof** | `lsof` | Debug open files/ports |
 | **dnsutils** | `dig` | DNS debugging |
 | **netcat** | `nc` | Network debugging |
@@ -1001,6 +1004,7 @@ GTBI installs a comprehensive suite of **30+ tools** organized into categories:
 | Tool | Command | Description |
 |------|---------|-------------|
 | **Tailscale** | `tailscale` | Zero-config mesh VPN |
+| **SSH keepalive** | - | Server-side `ClientAliveInterval` so long agent sessions don't drop |
 
 **Tailscale Integration:**
 
@@ -1033,6 +1037,7 @@ Benefits for agentic workflows:
 | **Claude Code** | `claude` | `cc` (dangerous mode) |
 | **Codex CLI** | `codex` | `cod` (dangerous mode) |
 | **Gemini CLI** | `gemini` | `gmi` (dangerous mode) |
+| **OpenCode** (optional) | `opencode` | - |
 
 **Vibe Mode Aliases:**
 ```bash
@@ -1053,55 +1058,15 @@ Claude Code should be installed and updated using its native mechanisms:
 
 This ensures proper authentication handling and avoids issues with alternative package manager builds. For Codex and Gemini, GTBI uses standard bun global package updates.
 
-### Cloud & Database
-
-| Tool | Command | Description |
-|------|---------|-------------|
-| **PostgreSQL 18** | `psql` | Database |
-| **HashiCorp Vault** | `vault` | Secrets management |
-| **Wrangler** | `wrangler` | Cloudflare CLI |
-| **Supabase CLI** | `supabase` | Supabase management |
-| **Vercel CLI** | `vercel` | Vercel deployment |
-
-Vault is installed by default (skip with `--skip-vault`). GTBI installs the Vault **CLI** so you have a real secrets tool available early; it does not automatically configure a Vault server for you.
-
-Supabase networking note: some Supabase projects expose the **direct Postgres host over IPv6-only** (often on free tiers). If your VPS/network is **IPv4-only**, use the Supabase **pooler** connection string instead (or upgrade/configure networking for direct IPv4).
-
 ### Agent Stack
 
-Local-first issue tracking and multi-agent orchestration:
+Local-first issue tracking and multi-agent orchestration, all built on a version-controlled database:
 
 | Tool | Command | Description |
 |------|---------|-------------|
 | **Dolt** | `dolt` | Version-control database (backs beads) |
 | **beads** | `bd` | Dolt-backed local-first issue tracker for AI agents |
 | **Gastown** | `gt` | Go multi-agent orchestrator |
-
-### Dicklesworthstone Stack (10 Tools)
-
-The complete suite of tools for professional agentic workflows:
-
-| # | Tool | Command | Description |
-|---|------|---------|-------------|
-| 1 | **Named Tmux Manager** | `ntm` | Agent cockpit—spawn, orchestrate, monitor tmux sessions |
-| 2 | **MCP Agent Mail** | `am` | Agent coordination via mail-like messaging (Rust binary) |
-| 3 | **Ultimate Bug Scanner** | `ubs` | Bug scanning with guardrails |
-| 4 | **Beads Viewer** | `bv` | Task management TUI with graph analysis |
-| 5 | **Coding Agent Session Search** | `cass` | Unified agent history search |
-| 6 | **CASS Memory System** | `cm` | Procedural memory for agents |
-| 7 | **Coding Agent Account Manager** | `caam` | Agent auth switching |
-| 8 | **Simultaneous Launch Button** | `slb` | Two-person rule for dangerous commands |
-| 9 | **Destructive Command Guard** | `dcg` | Claude Code hook blocking dangerous git/fs commands |
-| 10 | **Repo Updater** | `ru` | Multi-repo sync + AI-driven commit automation |
-
-### Bundled Utilities
-
-Additional productivity tools installed alongside the stack:
-
-| Tool | Command | Description |
-|------|---------|-------------|
-| **Get Image from Internet Link** | `giil` | Download images from iCloud, Dropbox, Google Photos for visual debugging |
-| **Chat Shared Conversation to File** | `csctf` | Convert AI share links (ChatGPT, Gemini, Claude) to Markdown/HTML |
 
 ---
 
@@ -1141,29 +1106,12 @@ $ gtbi doctor
 ║   ✔ codex 0.1.2504252326                                      ║
 ║   ✔ gemini 0.1.12                                             ║
 ║                                                               ║
-║ Cloud                                                         ║
-║   ✔ vault 1.18.3                                              ║
-║   ✔ wrangler 4.16.0                                           ║
-║   ✔ supabase 2.23.4                                           ║
-║   ✔ vercel 41.7.6                                             ║
-║                                                               ║
-║ Dicklesworthstone Stack                                       ║
-║   ✔ ntm 0.3.2                                                 ║
-║   ✔ slb 0.2.1                                                 ║
-║   ✔ ubs 0.1.8                                                 ║
-║   ✔ bv 0.9.4                                                  ║
-║   ✔ cass 0.4.2                                                ║
-║   ✔ cm 0.1.3                                                  ║
-║   ✔ caam 0.2.0                                                ║
-║   ✔ dcg 0.1.0                                                 ║
-║   ✔ ru 1.2.0                                                  ║
-║   ⚠ mcp_agent_mail (not running)                              ║
-║                                                               ║
-║ Utilities                                                     ║
-║   ✔ giil 3.0.0                                                ║
-║   ✔ csctf 1.0.0                                               ║
+║ Agent Stack                                                   ║
+║   ✔ dolt 1.43.0                                               ║
+║   ✔ bd (beads) 0.6.0                                          ║
+║   ✔ gt (Gastown) 0.4.0                                        ║
 ╠══════════════════════════════════════════════════════════════╣
-║ Overall: 35/36 checks passed                                  ║
+║ Overall: 18/18 checks passed                                  ║
 ╚══════════════════════════════════════════════════════════════╝
 ```
 
@@ -1237,10 +1185,11 @@ These fixes are applied automatically when `--fix` is used:
 |--------|-------------|---------------|
 | `fix.path.ordering` | Prepend GTBI directories to PATH in .zshrc | Restore backup |
 | `fix.config.copy` | Copy missing ~/.gtbi config files | Remove copied file |
-| `fix.dcg.hook` | Install DCG pre-tool-use hook | Run `dcg uninstall` |
 | `fix.symlink.create` | Create missing tool symlinks | Remove symlink |
 | `fix.plugin.clone` | Clone missing zsh plugins | Remove cloned directory |
 | `fix.gtbi.sourcing` | Add GTBI sourcing to .zshrc | Restore backup |
+| `fix.stack.<tool>` | Reinstall a missing stack tool via verified installer | Remove installed binary |
+| `fix.ssh.keepalive` | Configure SSH `ClientAliveInterval` keepalive | Restore backup |
 
 #### Safety Guarantees
 
@@ -1685,292 +1634,6 @@ Handles the complex multi-step Ubuntu upgrade process:
 
 ---
 
-## MCP Agent Mail Integration
-
-GTBI includes integration with **MCP Agent Mail** for multi-agent coordination:
-
-### What Agent Mail Provides
-
-- **Identities:** Each agent registers with a unique name
-- **Inbox/Outbox:** Message-based communication between agents
-- **File Reservations:** Advisory leases to prevent agents from clobbering each other's work
-- **Searchable Threads:** Full-text search across all messages
-- **Git Persistence:** All artifacts stored in git for human auditability
-
-### Core Patterns
-
-**1. Register Identity:**
-```bash
-# In your agent, call:
-mcp.ensure_project(project_key="/data/projects/my-project")
-mcp.register_agent(project_key=..., program="claude-code", model="opus-4.5")
-```
-
-**2. Reserve Files Before Editing:**
-```bash
-mcp.file_reservation_paths(
-    project_key=...,
-    agent_name="BlueLake",
-    paths=["src/**"],
-    ttl_seconds=3600,
-    exclusive=true
-)
-```
-
-**3. Communicate:**
-```bash
-mcp.send_message(
-    project_key=...,
-    sender_name="BlueLake",
-    to=["GreenCastle"],
-    subject="Review needed",
-    body_md="Please review the auth changes..."
-)
-```
-
-### Macros for Speed
-
-When speed matters more than fine-grained control:
-
-```bash
-mcp.macro_start_session(...)      # Ensure project + register + fetch inbox
-mcp.macro_prepare_thread(...)     # Align with existing thread
-mcp.macro_file_reservation_cycle(...)  # Reserve + work + release
-mcp.macro_contact_handshake(...)  # Request contact permissions
-```
-
----
-
-## Destructive Command Guard (dcg)
-
-**dcg** is a high-performance Claude Code hook that blocks dangerous git and filesystem commands before they execute. Built in Rust for sub-millisecond latency, it provides mechanical enforcement of safety rules that instructions alone cannot guarantee.
-
-### Why dcg Exists
-
-On December 17, 2025, an AI agent ran `git checkout --` on files containing hours of uncommitted work from a parallel coding session. The files were recovered via `git fsck --lost-found`, but the incident made one thing clear: instructions in `AGENTS.md` don't prevent execution. **dcg provides mechanical enforcement**.
-
-### What Gets Blocked
-
-| Category | Commands |
-|----------|----------|
-| **Git Reset** | `git reset --hard`, `git reset --merge` <!-- gtbi-policy-lint: allow filesystem.no_destructive_cleanup --> |
-| **File Discard** | `git checkout -- <files>`, `git restore <files>` <!-- gtbi-policy-lint: allow filesystem.no_destructive_cleanup --> |
-| **Force Push** | `git push --force` / `-f` (allows `--force-with-lease`) |
-| **Clean** | `git clean -f` (allows `-n` dry-run) |
-| **Branch Delete** | `git branch -D` (allows `-d`) |
-| **Stash Loss** | `git stash drop`, `git stash clear` |
-| **Filesystem** | `rm -rf` <!-- gtbi-policy-lint: allow filesystem.no_destructive_cleanup --> |
-
-### What Gets Allowed
-
-Safe variants are allowlisted:
-- `git checkout -b <branch>` — Creates branch, doesn't touch files
-- `git restore --staged` — Only unstages, doesn't discard
-- `git clean -n` — Dry-run preview
-- Temp directory cleanup still requires explicit human approval when an agent would delete files
-
-### Installation
-
-```bash
-curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/destructive_command_guard/main/install.sh?$(date +%s)" | bash
-```
-
-### Claude Code Configuration
-
-Add to `~/.claude/settings.json`:
-
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [{"type": "command", "command": "dcg"}]
-      }
-    ]
-  }
-}
-```
-
-### Modular Pack System
-
-dcg uses a modular pack system for extensibility. Enable additional packs in `~/.config/dcg/config.toml`:
-
-```toml
-[packs]
-enabled = [
-    "database.postgresql",
-    "containers.docker",
-    "kubernetes",
-]
-```
-
-Available packs: `database.*`, `containers.*`, `kubernetes.*`, `cloud.*`, `infrastructure.*`, `system.*`, `package_managers`.
-
----
-
-## Repo Updater (ru)
-
-**ru** is a production-grade CLI tool for synchronizing collections of GitHub repositories and automating commit workflows across dirty repos with AI assistance.
-
-### Core Features
-
-- **Multi-repo sync**: Clone missing repos, pull updates, detect conflicts
-- **Agent sweep**: AI-driven commit automation across repositories with uncommitted changes
-- **AI code review**: Orchestrate Claude Code review sessions for open issues/PRs
-- **Work-stealing queue**: Parallel execution with load-balanced workers
-- **NTM integration**: Session management via Named Tmux Manager
-
-### Quick Start
-
-```bash
-curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/repo_updater/main/install.sh?ru_cb=$(date +%s)" | bash
-```
-
-Initialize configuration:
-
-```bash
-# Initialize configuration
-ru init --example
-
-# Sync all repositories
-ru sync
-
-# Check status without changes
-ru status
-```
-
-### Agent Sweep Workflow
-
-The `agent-sweep` command automates commits across dirty repositories:
-
-```bash
-# Preview repos to process
-ru agent-sweep --dry-run
-
-# Full automation with AI
-ru agent-sweep --parallel 4
-
-# Include release automation
-ru agent-sweep --with-release
-```
-
-**Three-Phase Workflow:**
-1. **Planning**: Claude Code analyzes changes, generates commit message
-2. **Commit**: Validates plan, stages files, runs quality gates
-3. **Release**: (Optional) Creates version tag and GitHub release
-
-### Configuration
-
-```bash
-# ~/.config/ru/config
-PROJECTS_DIR=/data/projects
-LAYOUT=flat                   # flat|owner-repo|full
-UPDATE_STRATEGY=ff-only       # ff-only|rebase|merge
-PARALLEL=4
-```
-
-**Repo list format** (`~/.config/ru/repos.d/public.txt`):
-```
-owner/repo
-owner/repo@develop            # Pin to branch
-owner/repo as custom-name     # Custom directory name
-```
-
----
-
-## Get Image from Internet Link (giil)
-
-**giil** downloads full-resolution images from cloud photo shares to your terminal. Essential for remote debugging workflows where you need to analyze screenshots in SSH sessions.
-
-### Supported Platforms
-
-| Platform | Method | Speed |
-|----------|--------|-------|
-| **iCloud** | 4-tier capture strategy | 5-15s |
-| **Dropbox** | Direct curl download | 1-2s |
-| **Google Photos** | Network interception | 5-15s |
-| **Google Drive** | Multi-tier with auth detection | 5-15s |
-
-### Usage
-
-```bash
-# Basic download
-giil "https://share.icloud.com/photos/02cD9okNHvVd-uuDnPCH3ZEEA"
-# Output: /current/dir/icloud_20240115_143245.jpg
-
-# Download to specific directory
-giil "..." --output ~/Downloads
-
-# Get JSON metadata
-giil "..." --json
-
-# Download all photos from album
-giil "..." --all --output ~/album
-```
-
-### Installation
-
-```bash
-curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/giil/main/install.sh?v=3.0.0" | bash
-```
-
-### Visual Debugging Workflow
-
-1. Screenshot UI bug on iPhone
-2. Wait for iCloud sync to Mac
-3. Share via Photos.app → Copy iCloud Link
-4. Paste link into remote terminal running Claude Code
-5. `giil` fetches the image locally
-6. AI assistant analyzes the screenshot
-
----
-
-## Chat Shared Conversation to File (csctf)
-
-**csctf** converts public AI conversation share links into clean, searchable Markdown and HTML transcripts. Perfect for archiving AI conversations, building knowledge bases, and sharing with teams.
-
-### Supported Providers
-
-| Provider | URL Pattern |
-|----------|------------|
-| **ChatGPT** | `chatgpt.com/share/*` |
-| **Gemini** | `gemini.google.com/share/*` |
-| **Grok** | `grok.com/share/*` |
-| **Claude** | `claude.ai/share/*` |
-
-### Usage
-
-```bash
-# Basic conversion
-csctf https://chatgpt.com/share/69343092-91ac-800b-996c-7552461b9b70
-# Creates: <slug>.md and <slug>.html
-
-# Markdown only
-csctf "..." --md-only
-
-# Publish to GitHub Pages
-csctf "..." --publish-to-gh-pages --yes
-
-# JSON metadata output
-csctf "..." --json
-```
-
-### Installation
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/chat_shared_conversation_to_file/main/install.sh | bash
-```
-
-### Output Features
-
-- **Markdown**: Clean formatting with preserved code blocks and language hints
-- **HTML**: Zero-JavaScript static page with syntax highlighting
-- **Deterministic filenames**: `<slug>_YYYYMMDD.md` for reliable archival
-- **Collision handling**: Auto-increments suffix to avoid overwrites
-
----
-
 ## CI/CD
 
 GTBI uses GitHub Actions for continuous integration:
@@ -2080,11 +1743,11 @@ triggers:
 The monitor **fails closed** when verification returns fetch errors or skipped entries; it will not emit partial/placeholder checksum updates.
 
 **Trusted Tools (Auto-Update Enabled):**
-- Dicklesworthstone stack tools (ntm, cass, cm, ubs, slb, dcg, caam, bv, agent-mail, ru)
-- These are maintained by the same author, so upstream changes are implicitly trusted
+- Installers whose upstream URL is author-maintained (currently the Gemini CLI crash-fix patch script)
+- These are maintained by a trusted author, so upstream changes are auto-applied
 
 **Non-Trusted Tools (Manual Review Required):**
-- Third-party installers (bun, uv, rust, oh-my-zsh, atuin, zoxide, nvm)
+- Third-party installers (bun, uv, rust, oh-my-zsh, atuin, zoxide, nvm, dolt, claude, opencode)
 - Changes trigger a GitHub issue with diff details for human review
 
 This ensures:
@@ -2192,7 +1855,7 @@ GTBI works on any Ubuntu VPS with SSH access and either root password login or a
 
 > **Why 48-64GB RAM?** Each AI coding agent uses ~2GB RAM. To run 10-20+ agents simultaneously, you need 48GB+ RAM. Don't bottleneck a $400+/month AI investment to save $20 on hosting.
 
-After installation, run `gtbi capacity --profile 25-agents --recommend-ntm` on the VPS for a local RAM/CPU/disk sizing report with recommended agent counts and copyable NTM launch profiles.
+After installation, run `gtbi capacity --profile 25-agents` on the VPS for a local RAM/CPU/disk sizing report with recommended agent counts.
 
 ### Contabo (Best Value — Top Pick)
 
@@ -2630,10 +2293,10 @@ GTBI isn't just a collection of tools—it's a **carefully curated system** wher
 │  ENVIRONMENT    │         │    AGENTS       │         │  COORDINATION   │
 │  LAYER          │         │    LAYER        │         │  LAYER          │
 ├─────────────────┤         ├─────────────────┤         ├─────────────────┤
-│ • zsh + p10k    │────────▶│ • Claude Code   │────────▶│ • Agent Mail    │
-│ • tmux          │         │ • Codex CLI     │         │ • NTM           │
-│ • Modern CLI    │         │ • Gemini CLI    │         │ • SLB + DCG     │
-│ • Language VMs  │         │                 │         │ • Beads Viewer  │
+│ • zsh + p10k    │────────▶│ • Claude Code   │────────▶│ • Gastown (gt)  │
+│ • tmux          │         │ • Codex CLI     │         │ • beads (bd)    │
+│ • Modern CLI    │         │ • Gemini CLI    │         │ • Dolt          │
+│ • Language VMs  │         │ • OpenCode      │         │                 │
 └─────────────────┘         └─────────────────┘         └─────────────────┘
          │                             │                             │
          │    Each layer enables       │    Agents become more      │
@@ -2648,11 +2311,9 @@ Every tool in GTBI earns its place through **concrete productivity gains**:
 | Tool | Individual Value | Synergy Value |
 |------|-----------------|---------------|
 | **tmux** | Persistent sessions | Agents can work while you're disconnected |
-| **NTM** | Organized sessions | One command spawns 10 agents in named windows |
-| **Agent Mail** | Message passing | Agents coordinate without conflicts |
-| **SLB** | Two-person rule | Dangerous operations require confirmation |
-| **DCG** | Command guardrails | Blocks destructive commands before execution |
-| **Beads Viewer** | Task tracking | Agents can see project state, avoid rework |
+| **beads** (`bd`) | Task tracking | Agents share one dependency-aware issue graph, avoid rework |
+| **Dolt** | Versioned database | Task state is branchable, diffable, and syncable |
+| **Gastown** (`gt`) | Orchestration | Drives multiple agents against ready work |
 | **atuin** | Shell history | Search commands across sessions, share patterns |
 | **zoxide** | Smart cd | `z proj` beats `cd ~/projects/my-long-name` |
 | **ripgrep** | Fast search | Agents find code 100x faster than grep |
@@ -2662,15 +2323,13 @@ Every tool in GTBI earns its place through **concrete productivity gains**:
 
 A single agent with basic tooling is useful. Three agents with:
 - A shared project structure
-- Coordination via Agent Mail
-- Orchestration via NTM
-- Safety guardrails via SLB
-- DCG guard hook (blocks destructive commands before execution)
-- Task visibility via Beads
+- A shared, dependency-aware task graph via beads
+- Version-controlled task state via Dolt
+- Orchestration via Gastown
 
 ...can accomplish in one day what would take a solo developer a week.
 
-Tip: run `gtbi services-setup` to configure logins, and enable DCG for destructive-command protection.
+Tip: run `gtbi services-setup` to configure agent logins.
 
 **This is the flywheel effect in action.** Better tools → more capable agents → more code shipped → better understanding of what tools are needed → better tools.
 
@@ -2841,7 +2500,7 @@ GTBI_MODULE_PHASE["agents.claude"]="7"
 # Dependency relationships (comma-separated)
 declare -gA GTBI_MODULE_DEPS
 GTBI_MODULE_DEPS["agents.codex"]="lang.bun"
-GTBI_MODULE_DEPS["stack.mcp_agent_mail"]="lang.bun,lang.uv"
+GTBI_MODULE_DEPS["stack.bd"]="stack.dolt"
 
 # Generated function name mapping
 declare -gA GTBI_MODULE_FUNC
@@ -2854,7 +2513,7 @@ GTBI_MODULE_CATEGORY["lang.bun"]="lang"
 # Default inclusion in install
 declare -gA GTBI_MODULE_DEFAULT
 GTBI_MODULE_DEFAULT["lang.bun"]="1"
-GTBI_MODULE_DEFAULT["db.postgres18"]="1"
+GTBI_MODULE_DEFAULT["stack.dolt"]="1"
 ```
 
 **Runtime Access Pattern:**
@@ -2866,10 +2525,10 @@ for module in "${GTBI_MODULES_IN_ORDER[@]}"; do
 done
 
 # Check if module is default-installed
-[[ "${GTBI_MODULE_DEFAULT[tools.vault]:-1}" == "1" ]]
+[[ "${GTBI_MODULE_DEFAULT[tools.lazygit]:-1}" == "1" ]]
 
 # Get installation phase
-printf '%s\n' "${GTBI_MODULE_PHASE[stack.ntm]}"  # 9
+printf '%s\n' "${GTBI_MODULE_PHASE[stack.bd]}"  # 9
 ```
 
 **Use Cases:**
@@ -2920,75 +2579,52 @@ Without coordination, multiple agents cause chaos:
 
 ### The GTBI Solution Stack
 
+GTBI coordinates agents through a small, Dolt-backed stack:
+
 ```
 ┌───────────────────────────────────────────────────────────────────────────┐
 │                         AGENT COORDINATION LAYER                           │
 │                                                                             │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐       │
-│  │ Agent Mail  │  │    NTM      │  │  SLB + DCG  │  │   Beads     │       │
-│  │ (Messaging) │  │ (Sessions)  │  │ (Safety)    │  │ (Tasks)     │       │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘       │
-│         │                │                │                │               │
-│         │   ┌────────────┴────────────────┴────────────────┘               │
-│         │   │                                                              │
-│         ▼   ▼                                                              │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                         │
+│  │   Gastown   │  │    beads    │  │    Dolt     │                         │
+│  │ (Orchestr.) │  │   (Tasks)   │  │ (Versioned  │                         │
+│  │             │  │             │  │  database)  │                         │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘                         │
+│         │                │                │                                 │
+│         └────────────────┴────────────────┘                                │
+│                          │                                                  │
+│                          ▼                                                  │
 │  ┌──────────────────────────────────────────────────────────────────────┐ │
-│  │                      FILE RESERVATION SYSTEM                          │ │
+│  │                      SHARED TASK GRAPH (beads)                        │ │
 │  │                                                                        │ │
-│  │  Agent A reserves: src/auth/**                                         │ │
-│  │  Agent B reserves: src/api/**                                          │ │
-│  │  Agent C reserves: tests/**                                            │ │
+│  │  Agent A claims: bd-101 (auth)                                         │ │
+│  │  Agent B claims: bd-102 (api)                                          │ │
+│  │  Agent C claims: bd-103 (tests)                                        │ │
 │  │                                                                        │ │
-│  │  → No conflicts, parallel progress                                     │ │
+│  │  → Dependencies and blockers visible to every agent                    │ │
 │  └──────────────────────────────────────────────────────────────────────┘ │
 └───────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Agent Communication Patterns
+### Agent Coordination Patterns
 
-**1. Direct Messaging (Agent Mail)**
+**1. Shared task graph (beads)**
 ```
-Agent A → Agent B: "I finished the auth module, ready for API integration"
-Agent B → Agent A: "ACK, starting API integration with auth dependency"
-```
-
-**2. Broadcast Updates (Thread Summaries)**
-```
-Thread: "Sprint 23 Tasks"
-├── Agent A: "Claimed user-registration feature"
-├── Agent B: "Claimed api-endpoints feature"
-├── Agent C: "Claimed test-coverage task"
-└── All agents see project state
+Agent A: bd update bd-101 --claim   → owns the auth task
+Agent B: bd ready                    → sees bd-101 is taken, picks bd-102
+Agent C: bd dep add bd-104 bd-101    → records a blocker every agent can see
 ```
 
-**3. File Reservations (Conflict Prevention)**
+**2. Version-controlled state (Dolt)**
 ```
-Agent A: reserve_paths(["src/auth/*"], exclusive=true, ttl=3600)
-Agent B: reserve_paths(["src/auth/*"]) → CONFLICT: held by Agent A
-Agent B: reserve_paths(["src/api/*"]) → GRANTED
-```
-
-### The NTM Orchestration Pattern
-
-Named Tmux Manager (NTM) enables the **one-command swarm spawn**:
-
-```bash
-# Spawn 10 agents, each in a named tmux window
-ntm spawn \
-  --count 10 \
-  --prefix "agent-" \
-  --command "claude --dangerously-skip-permissions"
+beads stores issues in a Dolt database, so task state is branchable,
+diffable, and syncable across machines via refs/dolt/data.
 ```
 
-Result:
+**3. Orchestration (Gastown)**
 ```
-tmux session: gtbi-swarm
-├── agent-1: Claude working on auth
-├── agent-2: Claude working on api
-├── agent-3: Claude working on tests
-├── agent-4: Codex reviewing PRs
-├── agent-5: Gemini writing docs
-└── ...
+gt drives multi-agent runs over the shared beads graph,
+spawning and supervising agents against ready work.
 ```
 
 ### Dry-Run Swarm Simulation
@@ -2999,12 +2635,11 @@ Before launching any real swarm, ask GTBI for a queue-aware plan:
 gtbi swarm plan --agents 25 --profile balanced --workload standard
 ```
 
-The planner reads the local swarm status and capacity model, incorporates RCH
-queue pressure, active tmux/NTM sessions, Beads in-progress counts, and host
-resource headroom, then prints a pass/warn/fail recommendation. It is advisory
-only: it does not launch agents, mutate Beads, send Agent Mail, force-release
-reservations, or run build commands. JSON output is available with `--json`,
-and fixture replay is available with `--status-file`.
+The planner reads the local swarm status and capacity model, incorporates
+active tmux sessions, beads in-progress counts, and host resource headroom,
+then prints a pass/warn/fail recommendation. It is advisory only: it does not
+launch agents, mutate beads, or run build commands. JSON output is available
+with `--json`, and fixture replay is available with `--status-file`.
 
 For multi-host planning, keep a local redacted inventory at
 `~/.gtbi/swarm/hosts.inventory.json`:
@@ -3019,21 +2654,20 @@ gtbi swarm inventory import --input inventory.redacted.json
 The inventory commands are local and advisory. They read or write JSON files,
 preserve unknown fields for future versions, reject sensitive field names such
 as hostnames, IPs, keys, tokens, passwords, and home paths, and never SSH,
-launch NTM, run RU, send Agent Mail, mutate Beads, or change RCH config.
+launch agents, mutate beads, or change config.
 
 For each agent you plan to launch, generate a bounded startup packet from the
-selected Bead plus current repo instructions and bounded CM/CASS context:
+selected bead plus current repo instructions:
 
 ```bash
 gtbi swarm packet --bead bd-1234 --agent-name BlueLake --role implementation
 gtbi swarm packet --json --bead bd-1234 --agent-name BlueLake
 ```
 
-The packet is designed for NTM prompt injection. It prioritizes live AGENTS.md,
-README.md, Beads, and Agent Mail state over memory-derived hints, includes drift
-checks, and preserves exact `bv --robot-*`, `br`, Agent Mail MCP, `rch exec --`,
-and UBS workflow guidance. It is read-only: it does not claim work, reserve
-files, send messages, start agents, run builds, or edit generated files.
+The packet is designed for prompt injection at agent launch. It prioritizes live
+AGENTS.md, README.md, and beads state over memory-derived hints and includes
+drift checks. It is read-only: it does not claim work, send messages, start
+agents, run builds, or edit generated files.
 
 Before launching a large real swarm, GTBI can run an offline simulation of the control plane:
 
@@ -3041,7 +2675,7 @@ Before launching a large real swarm, GTBI can run an offline simulation of the c
 gtbi swarm simulate
 ```
 
-The default simulation runs 10, 25, and 50 logical-agent scenarios without launching tmux sessions, model CLIs, Beads mutations, Agent Mail writes, or local CPU-heavy builds. It writes artifacts for each scenario: generated launch plan, telemetry JSON, capacity/resource sample, timing, and pass/fail summary. Treat this as a local readiness harness, not a substitute for provider factory tests on real VPS hosts.
+The default simulation runs 10, 25, and 50 logical-agent scenarios without launching tmux sessions, model CLIs, beads mutations, or local CPU-heavy builds. It writes artifacts for each scenario: generated launch plan, telemetry JSON, capacity/resource sample, timing, and pass/fail summary. Treat this as a local readiness harness, not a substitute for provider factory tests on real VPS hosts.
 
 After one or more simulation runs, calibrate the static capacity assumptions
 against those local artifacts:
@@ -3053,8 +2687,7 @@ gtbi swarm calibration --json --artifact-dir ./swarm-artifacts --rch-file ./rch-
 
 The calibration report is read-only. It classifies the local evidence as
 conservative, aligned, or too aggressive, handles missing or partial artifacts
-with warnings, and never changes capacity defaults, RCH state, NTM sessions,
-Beads, or Agent Mail.
+with warnings, and never changes capacity defaults, tmux sessions, or beads.
 
 ---
 
@@ -3139,7 +2772,7 @@ Vibe coding assumes you'll run multiple agents simultaneously:
 - Codex for rapid prototyping and refactoring
 - Gemini for documentation and research
 
-GTBI provides the coordination layer (Agent Mail, NTM, SLB) that makes this practical.
+GTBI provides the coordination layer (Dolt + beads + Gastown) that makes this practical.
 
 ### The Anti-Patterns
 
@@ -3776,13 +3409,13 @@ Doctor checks are generated directly from the manifest, so they verify the exact
    ```bash
    gtbi install --only tools.lazygit   # Install just that tool
    gtbi install --only lang.go         # Install a language runtime
-   gtbi install --only stack.dcg       # Install a stack tool
+   gtbi install --only stack.bd        # Install a stack tool
    ```
 
 2. **Re-run an entire phase** (for multiple failures in one category):
    ```bash
-   gtbi install --only-phase cli     # Re-run CLI tools
-   gtbi install --only-phase stack   # Re-run stack tools
+   gtbi install --only-phase 5       # Re-run CLI tools
+   gtbi install --only-phase 9       # Re-run the agent stack
    ```
 
 3. **Run auto-fix mode** (applies safe, deterministic fixes):
@@ -3818,53 +3451,24 @@ Doctor checks are generated directly from the manifest, so they verify the exact
 
 ### Stack Tools Not Working
 
-**Symptom**: `ntm`, `slb`, `dcg`, etc. not found or erroring.
+**Symptom**: `dolt`, `bd` (beads), or `gt` (Gastown) not found or erroring.
 
 **Solutions**:
 
-1. **Reinstall stack**:
+1. **Reinstall the stack**:
    ```bash
    gtbi update --stack --force
    ```
 
-2. **Check cargo install worked**:
+2. **Check the binaries are present and on PATH**:
    ```bash
-   ls ~/.cargo/bin/  # Should contain ntm, slb, ru, etc.
-   ls ~/.local/bin/  # dcg often installs here
+   command -v dolt bd gt
+   ls ~/.local/bin/  # bd and gt typically install here
    ```
 
-3. **Rust not in path**:
+3. **Confirm beads can reach its Dolt database**:
    ```bash
-   source ~/.cargo/env
-   ```
-
-### DCG Hook Issues
-
-**Symptom**: DCG isn't blocking commands or Claude reports hook errors.
-
-**Solutions**:
-
-1. **Run the built-in health check**:
-   ```bash
-   dcg doctor
-   ```
-
-2. **Re-register the hook**:
-   ```bash
-   dcg install --force
-   ```
-
-3. **Verify hook registration**:
-   ```bash
-   grep -n dcg ~/.claude/settings.json ~/.config/claude/settings.json
-   ```
-
-4. **Reinstall if binary is missing**:
-   ```bash
-   which dcg  # Should return a path
-   # If missing, reinstall:
-   curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/destructive_command_guard/main/install.sh" | bash
-   dcg install  # Register hook after reinstall
+   bd ready          # Should list ready work, not a DB error
    ```
 
 ### Complete Reset
@@ -4060,75 +3664,53 @@ GTBI is optimal when you need:
 
 ---
 
-## The Dicklesworthstone Stack Philosophy
+## The Agent Stack Philosophy
 
-The 10-tool stack included in GTBI isn't random—each tool addresses a specific problem discovered through extensive multi-agent development experience.
+The agent stack in GTBI is deliberately small: **Dolt**, **beads**, and **Gastown**. Each layer addresses a problem that surfaces when multiple AI coding agents work on the same project.
 
 ### The Problems
 
 Running multiple AI coding agents simultaneously surfaces problems that don't exist with single-agent or no-agent development:
 
-1. **Session chaos**: Agents in random terminal windows, no organization
-2. **File conflicts**: Two agents editing the same file simultaneously
-3. **No communication**: Agents can't coordinate or share findings
-4. **Dangerous commands**: Agents running `git reset --hard` or `rm -rf` without oversight
-5. **Lost context**: No memory of what agents learned previously
-6. **Auth switching**: Different projects need different credentials
-7. **History fragmentation**: Agent conversations scattered across systems
-8. **No task visibility**: Hard to see what agents are working on
-9. **Repo sprawl**: Dozens of repos, hard to keep synced, uncommitted work everywhere
-10. **Visual debugging gaps**: Screenshots on phone, can't view in SSH terminal
+1. **No task visibility**: Hard to see what each agent is working on
+2. **Duplicated work**: Agents solve the same problem independently
+3. **Hidden dependencies**: Blockers between tasks aren't recorded anywhere shared
+4. **Ephemeral state**: Task state lives in someone's head, not in version control
+5. **No orchestration**: Spawning and supervising agents against ready work is manual
 
 ### The Solutions
 
-Each tool in the stack addresses specific problems:
-
-| # | Tool | Problem Solved | Philosophy |
-|---|------|----------------|------------|
-| 1 | **NTM** | Session chaos | Named sessions create order from chaos |
-| 2 | **Agent Mail** | No communication + file conflicts | Message-passing + file reservations |
-| 3 | **UBS** | Dangerous commands | Guardrails with intelligence |
-| 4 | **Beads Viewer** | No task visibility | Graph-based task dependencies |
-| 5 | **CASS** | History fragmentation | Unified search across all agents |
-| 6 | **CM** | Lost context | Procedural memory for agents |
-| 7 | **CAAM** | Auth switching | One command to switch identities |
-| 8 | **SLB** | Dangerous commands | Two-person rule for nuclear options |
-| 9 | **DCG** | Dangerous git/fs commands | Sub-millisecond Claude Code hook blocks destructive operations |
-| 10 | **RU** | Repo sprawl | Sync repos + AI-driven commit automation across dirty repos |
-
-**Bundled Utilities:**
+Each layer of the stack addresses specific problems:
 
 | Tool | Problem Solved | Philosophy |
 |------|----------------|------------|
-| **giil** | Visual debugging gaps | Download cloud images (iCloud, Dropbox, Google Photos) to terminal |
-| **csctf** | Knowledge capture | Convert AI chat shares to searchable Markdown/HTML archives |
+| **Dolt** | Ephemeral state | A version-controlled SQL database — task state is branchable and diffable |
+| **beads** (`bd`) | No task visibility + hidden dependencies | A Dolt-backed issue graph every agent reads and writes |
+| **Gastown** (`gt`) | No orchestration | Drives multi-agent runs against ready work in the beads graph |
 
 ### The Synergy Effect
 
-These tools are designed to work together:
+The layers are designed to work together:
 
 ```
-NTM spawns agents → Agents register with Agent Mail →
-Agent Mail reserves files → DCG blocks dangerous commands →
-UBS validates operations → Beads tracks tasks →
-CASS searches history → CM provides memory →
-CAAM manages auth → SLB gates nuclear operations →
-RU syncs repos and automates commits
+Dolt stores task state in a version-controlled database →
+beads exposes it as a dependency-aware issue graph →
+Gastown spawns and supervises agents against ready work →
+agents claim, update, and unblock issues that every other agent can see
 ```
 
-No single tool is transformative alone. Together, they enable workflows that would otherwise be impossible:
+No single layer is transformative alone. Together they enable workflows that would otherwise be fragile:
 
-- **10 agents working in parallel** without stepping on each other
-- **Continuous operation** across SSH disconnects
-- **Audit trails** for every agent action
+- **Multiple agents working in parallel** against a shared, consistent task graph
+- **Auditable history** of task state via Dolt commits
 - **Coordination** without manual intervention
-- **Safety** without sacrificing velocity
+- **Context recovery** across sessions and disconnects
 
 ### Design Principles of the Stack
 
 1. **Unix Philosophy**: Each tool does one thing well
-2. **Composition**: Tools designed to pipe into each other
-3. **Terminal-First**: TUI over GUI, speed over polish
+2. **Local-first**: State lives on the box, synced via git, not a SaaS
+3. **Terminal-First**: TUI/CLI over GUI, speed over polish
 4. **Agent-Native**: Built for AI, not adapted for AI
 5. **Git-Friendly**: All state is auditable in version control
 
@@ -4316,8 +3898,7 @@ Installation times vary by VPS provider and network conditions. Here are typical
 | CLI Tools | 3-5 min | Many apt packages |
 | Languages | 3-5 min | Rust compile takes longest |
 | Agents | 1-2 min | Fast bun installs |
-| Cloud | 1-2 min | Fast bun installs |
-| Stack | 4-6 min | Cargo installs |
+| Agent Stack | 1-2 min | Dolt, beads, Gastown installers |
 | Finalize | 30-60s | Config deployment |
 | **Total** | **15-25 min** | **Typical full install** |
 
@@ -4353,13 +3934,9 @@ MIT License (with OpenAI/Anthropic Rider). See [LICENSE](LICENSE) for details.
 
 - **GitHub:** [jonbackhaus/gtbi](https://github.com/jonbackhaus/gtbi)
 - **Upstream (ACFS):** [Dicklesworthstone/gastown_batteries_included](https://github.com/Dicklesworthstone/gastown_batteries_included)
-- **Related Projects:**
-  - [ntm](https://github.com/Dicklesworthstone/ntm) - Named Tmux Manager
-  - [beads_viewer](https://github.com/Dicklesworthstone/beads_viewer) - Task management TUI
-  - [mcp_agent_mail_rust](https://github.com/Dicklesworthstone/mcp_agent_mail_rust) - Agent coordination
-  - [cass](https://github.com/Dicklesworthstone/coding_agent_session_search) - Agent session search
-  - [dcg](https://github.com/Dicklesworthstone/destructive_command_guard) - Destructive Command Guard
-  - [ru](https://github.com/Dicklesworthstone/repo_updater) - Repo Updater
+- **Agent Stack:**
+  - [Dolt](https://github.com/dolthub/dolt) - Version-controlled SQL database
+  - [beads](https://github.com/gastownhall/beads) - Dolt-backed local-first issue tracker
 
 ---
 
