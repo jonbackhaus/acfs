@@ -99,25 +99,6 @@ Follow the prompts to authenticate with your Google account.
 
 ---
 
-## Backup Your Credentials!
-
-After logging in, **immediately** back up your credentials:
-
-```bash
-caam backup claude my-main-account
-caam backup codex my-main-account
-caam backup gemini my-main-account
-```
-
-Now you can switch accounts later with:
-```bash
-caam activate claude my-other-account
-```
-
-This is incredibly useful when you hit rate limits!
-
----
-
 ## Test Your Agents
 
 Try each one:
@@ -151,10 +132,7 @@ Let's verify your agents are ready:
 
 ```bash
 # Check which agents are installed
-which claude codex gemini
-
-# Check your agent credential backups
-caam ls
+which claude codex gemini opencode
 
 # If you haven't logged in yet, start with Claude:
 claude auth login
@@ -166,8 +144,8 @@ claude auth login
 
 ## Next
 
-Now let's learn NTM - the tool that orchestrates all these agents:
+Now let's see how the tools work together:
 
 ```bash
-onboard 5
+onboard 7
 ```

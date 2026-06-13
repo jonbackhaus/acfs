@@ -29,10 +29,9 @@ gtbi-update
 That's it! This updates:
 - System packages (apt)
 - Shell tools (OMZ, P10K, plugins)
-- Coding agents (Claude, Codex, Gemini)
-- Cloud CLIs (Wrangler, Supabase, Vercel)
+- Coding agents (Claude, Codex, Gemini, OpenCode)
 - Language runtimes (Bun, Rust, uv)
-- Dicklesworthstone stack tools (ntm, slb, ubs, br, bv, etc.)
+- Gastown stack tools (dolt, bd, gt)
 
 ---
 
@@ -183,10 +182,10 @@ Recommendations:
 
 ## Next
 
-Learn about managing multiple repositories with Repo Updater:
+Learn about the beads issue tracker:
 
 ```bash
-onboard 9
+onboard 16
 ```
 
 ---
