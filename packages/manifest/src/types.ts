@@ -245,8 +245,6 @@ export type ModuleCategory =
   | 'network'
   | 'lang'
   | 'tools'
-  | 'db'
-  | 'cloud'
   | 'agents'
   | 'stack'
   | 'gtbi';

@@ -466,18 +466,6 @@ assert_ssh_key_merge() {
     pass "post.ssh_keys" "seeded key merged exactly once with trailing newline"
 }
 
-assert_agent_mail_systemd() {
-    run_target_step "post.agent_mail_health" 'curl -fsS --max-time 10 http://127.0.0.1:8765/health/liveness >/dev/null'
-    run_target_step "post.agent_mail_systemd" '
-uid="$(id -u)"
-runtime_dir="/run/user/$uid"
-export XDG_RUNTIME_DIR="$runtime_dir"
-export DBUS_SESSION_BUS_ADDRESS="unix:path=$runtime_dir/bus"
-systemctl --user show-environment >/dev/null
-systemctl --user is-active --quiet agent-mail.service
-'
-}
-
 assert_gtbi_surface() {
     require_command sudo
     if [[ "$GTBI_FACTORY_MODE" == "vibe" ]]; then
@@ -494,9 +482,7 @@ printf "%s\n" "$doctor_json" | jq -e ".summary.fail == 0 and .summary.warn == 0"
     exit 1
 }
 '
-    run_target_step "post.stack_bins" 'for cmd in am ntm dcg ru cass cm caam slb ubs bv br; do command -v "$cmd" >/dev/null; done'
-    run_target_step "post.dcg_guard" 'dcg test "git reset --hard" 2>&1 | grep -Eqi "deny|block"'
-    assert_agent_mail_systemd
+    run_target_step "post.stack_bins" 'for cmd in dolt bd; do command -v "$cmd" >/dev/null; done'
     run_target_step "post.nightly_timer" '
 uid="$(id -u)"
 runtime_dir="/run/user/$uid"

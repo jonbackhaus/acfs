@@ -71,9 +71,6 @@ fi
 #     "apt_packages": 45
 #   },
 #   "target_user": "ubuntu",                  # User GTBI is installing for
-#   "skip_postgres": false,                   # CLI flag values for reference
-#   "skip_vault": false,
-#   "skip_cloud": false
 #   "ubuntu_upgrade": {                       # Present only while upgrading Ubuntu
 #     "enabled": true,
 #     "original_version": "24.04",
@@ -470,11 +467,6 @@ state_init() {
     fi
     state_target_user="${state_target_user:-unknown}"
 
-    # Normalize boolean values for JSON
-    local skip_pg="false"; [[ "${SKIP_POSTGRES:-false}" == "true" ]] && skip_pg="true"
-    local skip_v="false"; [[ "${SKIP_VAULT:-false}" == "true" ]] && skip_v="true"
-    local skip_c="false"; [[ "${SKIP_CLOUD:-false}" == "true" ]] && skip_c="true"
-
     local initial_state
     if command -v jq &>/dev/null; then
         initial_state=$(jq -n \
@@ -485,9 +477,6 @@ state_init() {
             --arg bin_dir "${GTBI_BIN_DIR:-$resolved_target_home/.local/bin}" \
             --arg ts "$now" \
             --arg mode "${MODE:-${GTBI_MODE:-vibe}}" \
-            --argjson skip_pg "$skip_pg" \
-            --argjson skip_v "$skip_v" \
-            --argjson skip_c "$skip_c" \
             '{
                 schema_version: $schema_version,
                 version: $ver,
@@ -500,9 +489,6 @@ state_init() {
                 completed_phases: [],
                 failed_phase: null,
                 failed_step: null,
-                skip_postgres: $skip_pg,
-                skip_vault: $skip_v,
-                skip_cloud: $skip_c,
                 ubuntu_upgrade: {
                     enabled: false,
                     current_stage: "none",
@@ -525,9 +511,6 @@ state_init() {
   "completed_phases": [],
   "failed_phase": null,
   "failed_step": null,
-  "skip_postgres": $skip_pg,
-  "skip_vault": $skip_v,
-  "skip_cloud": $skip_c,
   "ubuntu_upgrade": {
     "enabled": false,
     "current_stage": "none",

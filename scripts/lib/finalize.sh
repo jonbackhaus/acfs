@@ -322,10 +322,7 @@ GEMINI_TRUST_EOF
   "target_home": "$TARGET_HOME",
   "bin_dir": "$GTBI_BIN_DIR",
   "yes_mode": $YES_MODE,
-  "skip_postgres": $SKIP_POSTGRES,
-  "skip_vault": $SKIP_VAULT,
-  "skip_cloud": $SKIP_CLOUD,
-  "completed_phases": [1, 2, 3, 4, 5, 6, 7, 8, 9]
+  "completed_phases": [1, 2, 3, 4, 5, 6, 7, 8]
 }
 EOF
         $SUDO chown "$TARGET_USER:$TARGET_USER" "$GTBI_STATE_FILE"

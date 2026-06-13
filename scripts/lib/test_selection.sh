@@ -283,86 +283,6 @@ test_print_plan_deterministic() {
     test_fail "$name" "Failed to resolve selection"
 }
 
-test_legacy_skip_vault() {
-    local name="Legacy --skip-vault maps to tools.vault skip"
-    reset_selection
-    SKIP_VAULT=true
-
-    # Apply legacy flag mapping
-    gtbi_apply_legacy_skips
-
-    # Verify tools.vault is in SKIP_MODULES
-    local found=false
-    for m in "${SKIP_MODULES[@]}"; do
-        if [[ "$m" == "tools.vault" ]]; then
-            found=true
-            break
-        fi
-    done
-
-    if [[ "$found" == "true" ]]; then
-        test_pass "$name"
-    else
-        test_fail "$name" "tools.vault not in SKIP_MODULES"
-    fi
-}
-
-test_legacy_skip_postgres() {
-    local name="Legacy --skip-postgres maps to db.postgres18 skip"
-    reset_selection
-    SKIP_POSTGRES=true
-
-    # Apply legacy flag mapping
-    gtbi_apply_legacy_skips
-
-    # Verify db.postgres18 is in SKIP_MODULES
-    local found=false
-    for m in "${SKIP_MODULES[@]}"; do
-        if [[ "$m" == "db.postgres18" ]]; then
-            found=true
-            break
-        fi
-    done
-
-    if [[ "$found" == "true" ]]; then
-        test_pass "$name"
-    else
-        test_fail "$name" "db.postgres18 not in SKIP_MODULES"
-    fi
-}
-
-test_legacy_skip_cloud() {
-    local name="Legacy --skip-cloud maps to cloud.* skips"
-    reset_selection
-    SKIP_CLOUD=true
-
-    # Apply legacy flag mapping
-    gtbi_apply_legacy_skips
-
-    # Verify all cloud modules are in SKIP_MODULES
-    local expected=("cloud.wrangler" "cloud.supabase" "cloud.vercel")
-    local all_found=true
-    for e in "${expected[@]}"; do
-        local found=false
-        for m in "${SKIP_MODULES[@]}"; do
-            if [[ "$m" == "$e" ]]; then
-                found=true
-                break
-            fi
-        done
-        if [[ "$found" != "true" ]]; then
-            all_found=false
-            break
-        fi
-    done
-
-    if [[ "$all_found" == "true" ]]; then
-        test_pass "$name"
-    else
-        test_fail "$name" "Not all cloud modules in SKIP_MODULES"
-    fi
-}
-
 # ============================================================
 # Feature Flag Tests (mjt.5.6)
 # ============================================================
@@ -534,9 +454,6 @@ test_unknown_phase_error
 test_plan_order
 test_should_run_module
 test_print_plan_deterministic
-test_legacy_skip_vault
-test_legacy_skip_postgres
-test_legacy_skip_cloud
 test_feature_flag_default_unmigrated
 test_feature_flag_migrated_default
 test_feature_flag_global_disable

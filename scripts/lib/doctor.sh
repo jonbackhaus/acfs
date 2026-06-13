@@ -828,81 +828,6 @@ fix_for_phase() {
     build_fix_suggestion "" --phase "$phase_num"
 }
 
-agent_mail_doctor_check_json() {
-    local description="Agent Mail doctor check"
-    local result=""
-    local am_bin=""
-
-    am_bin="$(doctor_agent_mail_cli_path 2>/dev/null || true)"
-    [[ -n "$am_bin" ]] || return 1
-
-    local exit_status=0
-    if [[ $# -gt 0 ]]; then
-        result="$(run_with_timeout "$DEEP_CHECK_TIMEOUT" "$description" "$am_bin" doctor check --json "$1")" || exit_status=$?
-    else
-        result="$(run_with_timeout "$DEEP_CHECK_TIMEOUT" "$description" "$am_bin" doctor check --json)" || exit_status=$?
-    fi
-
-    if [[ $exit_status -ne 0 ]] || [[ -z "$result" ]] || [[ "$result" == "TIMEOUT" ]]; then
-        return 1
-    fi
-
-    printf '%s' "$result"
-}
-
-agent_mail_doctor_is_healthy() {
-    local doctor_json="${1:-}"
-
-    [[ -n "$doctor_json" ]] || return 1
-
-    if command -v jq &>/dev/null; then
-        [[ "$(printf '%s' "$doctor_json" | jq -r '.healthy // false' 2>/dev/null)" == "true" ]]
-        return $?
-    fi
-
-    printf '%s' "$doctor_json" | grep -q '"healthy"[[:space:]]*:[[:space:]]*true'
-}
-
-agent_mail_doctor_summary() {
-    local doctor_json="${1:-}"
-    local summary=""
-
-    [[ -n "$doctor_json" ]] || return 1
-
-    if command -v jq &>/dev/null; then
-        summary="$(printf '%s' "$doctor_json" | jq -r '
-            [
-                .checks[]?
-                | select(.status == "fail")
-                | "\(.check): \(.detail)"
-            ] | join("; ")
-        ' 2>/dev/null || true)"
-        if [[ -n "$summary" ]]; then
-            printf '%s' "$summary"
-            return 0
-        fi
-
-        summary="$(printf '%s' "$doctor_json" | jq -r '
-            [
-                .checks[]?
-                | select(.status == "warn")
-                | "\(.check): \(.detail)"
-            ] | join("; ")
-        ' 2>/dev/null || true)"
-        if [[ -n "$summary" ]]; then
-            printf '%s' "$summary"
-            return 0
-        fi
-    fi
-
-    if printf '%s' "$doctor_json" | grep -q '"healthy"[[:space:]]*:[[:space:]]*false'; then
-        printf '%s' "doctor check reported unhealthy state"
-        return 0
-    fi
-
-    return 1
-}
-
 # ============================================================
 # Manifest-Derived Checks (bd-31ps.5.1)
 # ============================================================
@@ -1810,9 +1735,6 @@ doctor_binary_exists() {
     [[ -n "$resolved" ]]
 }
 
-doctor_agent_mail_cli_path() {
-    doctor_binary_path "am"
-}
 # Try to retrieve a reasonably informative version line for a command without
 # assuming it supports `--version`.
 doctor_version_probe() {
@@ -2756,11 +2678,8 @@ run_deep_checks() {
     # Agent authentication checks
     deep_check_agent_auth
 
-    # Database connectivity checks
-    deep_check_database
-
-    # Cloud CLI checks
-    deep_check_cloud
+    # GitHub CLI authentication check
+    deep_check_gh
 
     # tmux responsiveness checks (GitHub issue #20: NTM timeouts / slow tmux)
     deep_check_tmux_performance
@@ -3028,101 +2947,9 @@ check_gemini_auth() {
     fi
 }
 
-# Deep check: Database connectivity
-# Enhanced per bead azw: PostgreSQL connection and role checks
-deep_check_database() {
-    check_postgres_connection
-    check_postgres_role
-}
-
-# check_postgres_connection - Test PostgreSQL connectivity
-# Related: bead azw
-check_postgres_connection() {
-    local psql_bin=""
-
-    # Skip if not installed
-    if ! psql_bin="$(doctor_binary_path psql 2>/dev/null || true)" || [[ -z "$psql_bin" ]]; then
-        check "deep.db.postgres_connect" "PostgreSQL connection" "warn" "psql not installed" "sudo apt install postgresql-client"
-        return
-    fi
-
-    # Try to connect to local postgres (5 second timeout, no password prompt)
-    # Use -w to avoid password prompts (would hang)
-    if timeout 5 "$psql_bin" -w -h localhost -U postgres -c 'SELECT 1' &>/dev/null; then
-        check "deep.db.postgres_connect" "PostgreSQL connection" "pass" "localhost:5432"
-    elif timeout 5 "$psql_bin" -w -h /var/run/postgresql -U postgres -c 'SELECT 1' &>/dev/null; then
-        check "deep.db.postgres_connect" "PostgreSQL connection" "pass" "unix socket"
-    else
-        # Try connecting as current user
-        if timeout 5 "$psql_bin" -w -c 'SELECT 1' &>/dev/null; then
-            check "deep.db.postgres_connect" "PostgreSQL connection" "pass" "current user"
-        else
-            check "deep.db.postgres_connect" "PostgreSQL connection" "warn" "connection failed" "sudo systemctl status postgresql"
-        fi
-    fi
-}
-
-# check_postgres_role - Verify target user role exists in PostgreSQL
-# Related: bead azw
-# Fixed: Try current user first before postgres user (pg_roles is readable by any authenticated user)
-# Fixed: Provide actionable fix message (createuser, not systemctl status)
-# Fixed: Use bash variable substitution with validated input (:'var' syntax is unreliable across psql versions)
-check_postgres_role() {
-    local psql_bin=""
-    psql_bin="$(doctor_binary_path psql 2>/dev/null || true)"
-    if [[ -z "$psql_bin" ]]; then
-        return  # Already reported in connection check
-    fi
-
-    # Validate target user with the same contract the installer uses. GTBI
-    # target users may contain dots/hyphens; the SQL below compares a string
-    # literal after this validation, not an unquoted PostgreSQL identifier.
-    local target_user="${TARGET_USER:-}"
-    if [[ -z "$target_user" ]]; then
-        check "deep.db.postgres_role" "PostgreSQL role check" "warn" "TARGET_USER not set"
-        return
-    fi
-    if [[ ! "$target_user" =~ ^[a-z_][a-z0-9._-]*$ ]]; then
-        check "deep.db.postgres_role" "PostgreSQL role check" "fail" "invalid username format"
-        return
-    fi
-
-    # Try to check if target user role exists
-    # pg_roles view is readable by any authenticated user - no superuser required
-    # SECURITY: target_user is validated above with regex, safe for bash substitution
-    local role_check
-    local connect_success=false
-    local sql_query="SELECT 1 FROM pg_roles WHERE rolname='$target_user'"
-
-    # Try connecting as current user first (mirrors check_postgres_connection behavior)
-    # This works when pg_hba.conf allows peer auth for local users
-    if role_check=$(timeout 5 "$psql_bin" -w -tAc "$sql_query" 2>/dev/null) && [[ "$role_check" == "1" ]]; then
-        connect_success=true
-    # Try localhost with postgres user as fallback
-    elif role_check=$(timeout 5 "$psql_bin" -w -h localhost -U postgres -tAc "$sql_query" 2>/dev/null) && [[ "$role_check" == "1" ]]; then
-        connect_success=true
-    # Try unix socket with postgres user as last resort
-    elif role_check=$(timeout 5 "$psql_bin" -w -h /var/run/postgresql -U postgres -tAc "$sql_query" 2>/dev/null) && [[ "$role_check" == "1" ]]; then
-        connect_success=true
-    fi
-
-    if [[ "$connect_success" == "true" ]]; then
-        check "deep.db.postgres_role" "PostgreSQL $target_user role" "pass" "role exists"
-    else
-        # Connection failed or role missing - provide actionable fix
-        check "deep.db.postgres_role" "PostgreSQL $target_user role" "warn" "role missing or connection failed" "sudo -u postgres createuser -s $target_user"
-    fi
-}
-
-# Deep check: Cloud CLI authentication
-# Enhanced per bead azw: Thorough cloud CLI auth checks with proper status handling
-# All checks use 10 second timeout to prevent hanging on network issues
-deep_check_cloud() {
-    check_vault_configured
+# Deep check: GitHub CLI authentication
+deep_check_gh() {
     check_gh_auth
-    check_wrangler_auth
-    check_supabase_auth
-    check_vercel_auth
 }
 
 # Deep check: tmux responsiveness
@@ -3396,38 +3223,6 @@ deep_check_notifications() {
     fi
 }
 
-# check_vault_configured - Check if Vault is configured and reachable
-# Related: bead azw
-check_vault_configured() {
-    local auth_home=""
-    local vault_bin=""
-    auth_home="$(doctor_runtime_home)"
-
-    # Skip if not installed
-    if ! vault_bin="$(doctor_binary_path vault 2>/dev/null || true)" || [[ -z "$vault_bin" ]]; then
-        check "deep.cloud.vault_status" "Vault" "warn" "not installed" "Install from https://www.vaultproject.io/"
-        return
-    fi
-
-    # Check if VAULT_ADDR is set (required for vault to work)
-    if [[ -z "${VAULT_ADDR:-}" ]]; then
-        # Check common config locations
-        if _gtbi_doctor_shell_has_active_assignment "$auth_home/.zshrc.local" "VAULT_ADDR"; then
-            check "deep.cloud.vault_config" "Vault config" "pass" "VAULT_ADDR in ~/.zshrc.local"
-        else
-            check "deep.cloud.vault_config" "Vault config" "warn" "VAULT_ADDR not set" "export VAULT_ADDR=https://your-vault-server:8200"
-        fi
-        return
-    fi
-
-    # VAULT_ADDR is set, try to connect
-    if timeout 10 "$vault_bin" status &>/dev/null; then
-        check "deep.cloud.vault_status" "Vault status" "pass" "connected to $VAULT_ADDR"
-    else
-        check "deep.cloud.vault_status" "Vault status" "warn" "not reachable" "Check VAULT_ADDR and network"
-    fi
-}
-
 # check_gh_auth - GitHub CLI authentication check
 # Related: bead azw
 # Enhanced: Caching support (bead lz1)
@@ -3461,173 +3256,6 @@ check_gh_auth() {
         check "deep.cloud.gh_auth" "GitHub CLI auth" "pass" "$gh_user"
     else
         check "deep.cloud.gh_auth" "GitHub CLI auth" "warn" "not authenticated" "gh auth login"
-    fi
-}
-
-# check_wrangler_auth - Cloudflare Wrangler authentication check
-# Related: bead azw
-# Enhanced: Caching and timeout support (bead lz1)
-check_wrangler_auth() {
-    local auth_home=""
-    local wrangler_bin=""
-    auth_home="$(doctor_runtime_home)"
-
-    if ! wrangler_bin="$(doctor_binary_path wrangler 2>/dev/null || true)" || [[ -z "$wrangler_bin" ]]; then
-        check "deep.cloud.wrangler_auth" "Wrangler (Cloudflare)" "warn" "not installed" "bun install -g --trust wrangler@latest"
-        return
-    fi
-
-    # Try cache first (bead lz1)
-    local cached_result
-    if cached_result=$(get_cached_result "wrangler_auth"); then
-        check "deep.cloud.wrangler_auth" "Wrangler (Cloudflare) auth" "pass" "$cached_result (cached)"
-        return
-    fi
-
-    local shell_config_files=()
-    mapfile -t shell_config_files < <(default_auth_config_files)
-    if get_configured_secret "CLOUDFLARE_API_TOKEN" "${shell_config_files[@]}" >/dev/null; then
-        cache_result "wrangler_auth" "CLOUDFLARE_API_TOKEN"
-        check "deep.cloud.wrangler_auth" "Wrangler (Cloudflare) auth" "pass" "CLOUDFLARE_API_TOKEN set"
-        return
-    fi
-
-    # Run with timeout
-    local result
-    result=$(run_with_timeout "$DEEP_CHECK_TIMEOUT" "Wrangler auth" "$wrangler_bin" whoami 2>&1)
-    local status=$?
-
-    if ((status == 124)); then
-        check_with_timeout_status "deep.cloud.wrangler_auth" "Wrangler (Cloudflare) auth" "timeout" "check timed out" "Check network, then set CLOUDFLARE_API_TOKEN or run wrangler login from a browser-capable session"
-    elif ((status == 0)); then
-        # Extract account info from wrangler whoami output
-        local wrangler_account="authenticated"
-        if echo "$result" | grep -q "Account ID"; then
-            wrangler_account="authenticated"
-        fi
-        cache_result "wrangler_auth" "$wrangler_account"
-        check "deep.cloud.wrangler_auth" "Wrangler (Cloudflare) auth" "pass" "$wrangler_account"
-    else
-        # A wrangler config file alone does not prove the user is still
-        # authenticated, so do not treat it as a pass if `whoami` failed.
-        if [[ -f "$auth_home/.wrangler/config/default.toml" ]]; then
-            check "deep.cloud.wrangler_auth" "Wrangler (Cloudflare) auth" "warn" "config file present but auth could not be verified" "Set CLOUDFLARE_API_TOKEN or rerun wrangler login from a browser-capable session"
-        else
-            check "deep.cloud.wrangler_auth" "Wrangler (Cloudflare) auth" "warn" "not authenticated" "Set CLOUDFLARE_API_TOKEN or run wrangler login from a browser-capable session"
-        fi
-    fi
-}
-
-# check_supabase_auth - Supabase CLI authentication check
-# Related: bead azw
-check_supabase_auth() {
-    local auth_home=""
-    local supabase_bin=""
-    auth_home="$(doctor_runtime_home)"
-
-    if ! supabase_bin="$(doctor_binary_path supabase 2>/dev/null || true)" || [[ -z "$supabase_bin" ]]; then
-        check "deep.cloud.supabase_auth" "Supabase CLI" "warn" "not installed" "gtbi update --cloud-only --force"
-        return
-    fi
-
-    # Try cache first (bead lz1)
-    local cached_result
-    if cached_result=$(get_cached_result "supabase_auth"); then
-        check "deep.cloud.supabase_auth" "Supabase CLI auth" "pass" "$cached_result (cached)"
-        return
-    fi
-
-    # Check for SUPABASE_ACCESS_TOKEN (headless auth)
-    local shell_config_files=()
-    mapfile -t shell_config_files < <(default_auth_config_files)
-    if get_configured_secret "SUPABASE_ACCESS_TOKEN" "${shell_config_files[@]}" >/dev/null; then
-        cache_result "supabase_auth" "SUPABASE_ACCESS_TOKEN"
-        check "deep.cloud.supabase_auth" "Supabase CLI auth" "pass" "SUPABASE_ACCESS_TOKEN set"
-        return
-    fi
-
-    local token_file=""
-    local token_files=(
-        "$auth_home/.supabase/access-token"
-        "$auth_home/.config/supabase/access-token"
-    )
-    for token_file in "${token_files[@]}"; do
-        if [[ -f "$token_file" ]]; then
-            local token_value=""
-            token_value="$(cat "$token_file" 2>/dev/null || true)"
-            if has_usable_secret "$token_value"; then
-                cache_result "supabase_auth" "access-token file"
-                check "deep.cloud.supabase_auth" "Supabase CLI auth" "pass" "access-token file present"
-                return
-            fi
-        fi
-    done
-
-    check "deep.cloud.supabase_auth" "Supabase CLI auth" "warn" "not authenticated" "supabase login --token <token> (or set SUPABASE_ACCESS_TOKEN)"
-}
-
-# check_vercel_auth - Vercel CLI authentication check
-# Related: bead azw
-check_vercel_auth() {
-    local auth_home=""
-    local vercel_bin=""
-    auth_home="$(doctor_runtime_home)"
-
-    if ! vercel_bin="$(doctor_binary_path vercel 2>/dev/null || true)" || [[ -z "$vercel_bin" ]]; then
-        check "deep.cloud.vercel_auth" "Vercel CLI" "warn" "not installed" "bun install -g --trust vercel@latest"
-        return
-    fi
-
-    # Try cache first (bead lz1)
-    local cached_result
-    if cached_result=$(get_cached_result "vercel_auth"); then
-        check "deep.cloud.vercel_auth" "Vercel CLI auth" "pass" "$cached_result (cached)"
-        return
-    fi
-
-    local shell_config_files=()
-    mapfile -t shell_config_files < <(default_auth_config_files)
-    if get_configured_secret "VERCEL_TOKEN" "${shell_config_files[@]}" >/dev/null; then
-        cache_result "vercel_auth" "VERCEL_TOKEN"
-        check "deep.cloud.vercel_auth" "Vercel CLI auth" "pass" "VERCEL_TOKEN set"
-        return
-    fi
-
-    # Run with timeout
-    local result
-    result=$(run_with_timeout "$DEEP_CHECK_TIMEOUT" "Vercel auth" "$vercel_bin" whoami 2>&1)
-    local status=$?
-
-    if ((status == 124)); then
-        check_with_timeout_status "deep.cloud.vercel_auth" "Vercel CLI auth" "timeout" "check timed out" "Check network, then run vercel login or set VERCEL_TOKEN"
-    elif ((status == 0)); then
-        local vercel_user
-        vercel_user=$(echo "$result" | head -n1 | tr -d ' ')
-        [[ -z "$vercel_user" ]] && vercel_user="authenticated"
-        cache_result "vercel_auth" "$vercel_user"
-        check "deep.cloud.vercel_auth" "Vercel CLI auth" "pass" "$vercel_user"
-    else
-        local auth_file=""
-        local auth_files=(
-            "$auth_home/.config/vercel/auth.json"
-            "$auth_home/.vercel/auth.json"
-        )
-        for auth_file in "${auth_files[@]}"; do
-            [[ -f "$auth_file" ]] || continue
-            if command -v jq &>/dev/null; then
-                if json_file_has_usable_jq_value "$auth_file" '.token // empty | strings'; then
-                    cache_result "vercel_auth" "auth file present"
-                    check "deep.cloud.vercel_auth" "Vercel CLI auth" "pass" "auth file present"
-                    return
-                fi
-            elif json_file_has_usable_string_key "$auth_file" "token"; then
-                cache_result "vercel_auth" "auth file present"
-                check "deep.cloud.vercel_auth" "Vercel CLI auth" "pass" "auth file present"
-                return
-            fi
-        done
-
-        check "deep.cloud.vercel_auth" "Vercel CLI auth" "warn" "not authenticated" "vercel login (or set VERCEL_TOKEN)"
     fi
 }
 
@@ -4252,8 +3880,7 @@ main() {
                 echo "By default, doctor runs quick existence checks only."
                 echo "Use --deep for thorough validation including:"
                 echo "  - Agent authentication (claude, codex, gemini)"
-                echo "  - Database connectivity (PostgreSQL)"
-                echo "  - Cloud CLI authentication (vault, wrangler, etc.)"
+                echo "  - GitHub CLI authentication (gh)"
                 echo ""
                 echo "Deep checks are cached for 5 minutes by default."
                 echo "Use --no-cache to force fresh deep checks."

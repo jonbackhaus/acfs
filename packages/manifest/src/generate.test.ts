@@ -262,43 +262,6 @@ describe('Generated verified installer args', () => {
     expect(stackContent).not.toContain("printf '%s\n'");
   });
 
-  test('stack.mcp_agent_mail dest uses TARGET_HOME directly without caller HOME fallback', () => {
-    const stackPath = resolve(GENERATED_DIR, 'install_stack.sh');
-    expect(existsSync(stackPath)).toBe(true);
-    const stackContent = readFileSync(stackPath, 'utf-8');
-
-    // Regression guard: the outer shell expands verified-installer args before
-    // run_as_target_runner switches users, so any HOME fallback here can route
-    // the install into the caller home instead of TARGET_HOME.
-    expect(stackContent).not.toContain('${TARGET_HOME:-${HOME:-/home/${TARGET_USER:-ubuntu}}}');
-    expect(stackContent).not.toContain('${HOME:-/home/${TARGET_USER:-ubuntu}}');
-    expect(stackContent).toContain('"$TARGET_HOME"');
-    expect(stackContent).toContain("'/mcp_agent_mail'");
-  });
-
-  test('stack.mcp_agent_mail writes an explicit managed no-auth service instead of tmux', () => {
-    const stackPath = resolve(GENERATED_DIR, 'install_stack.sh');
-    expect(existsSync(stackPath)).toBe(true);
-    const stackContent = readFileSync(stackPath, 'utf-8');
-
-    expect(stackContent).toContain('cat > "$unit_file" <<UNIT_EOF');
-    expect(stackContent).toContain('systemd_unit_path_escape() {');
-    expect(stackContent).toContain('value="${value//%/%%}"');
-    expect(stackContent).toContain('value="${value//\\$/\\$\\$}"');
-    expect(stackContent).toContain('WorkingDirectory=$storage_root_unit');
-    expect(stackContent).toContain('Environment=$storage_root_env');
-    expect(stackContent).toContain('Environment=$database_url_env');
-    expect(stackContent).toContain(
-      'ExecStart=${am_bin_exec} serve-http --no-tui --host 127.0.0.1 --port 8765 --path ${am_mcp_path_exec}'
-    );
-    expect(stackContent).not.toContain('Environment=STORAGE_ROOT=$storage_root');
-    expect(stackContent).not.toContain('ExecStart=$am_bin serve-http');
-    expect(stackContent).toContain('systemctl --user enable --now agent-mail.service');
-    expect(stackContent).toContain('curl -fsS --max-time 10 http://127.0.0.1:8765/health/liveness >/dev/null');
-    expect(stackContent).not.toContain('am service install >/dev/null');
-    expect(stackContent).not.toContain('tmux new-session -d -s "$tmux_session"');
-  });
-
   test('stack.dolt verified installer pipes through run_as_root_shell (not bare bash)', () => {
     const stackPath = resolve(GENERATED_DIR, 'install_stack.sh');
     expect(existsSync(stackPath)).toBe(true);
@@ -310,33 +273,6 @@ describe('Generated verified installer args', () => {
     );
     expect(stackContent).not.toContain(
       'verify_checksum "$url" "$expected_sha256" "$tool" | bash'
-    );
-  });
-
-  test('stack.ru passes RU_NON_INTERACTIVE via env in generated installer', () => {
-    const stackPath = resolve(GENERATED_DIR, 'install_stack.sh');
-    expect(existsSync(stackPath)).toBe(true);
-    const stackContent = readFileSync(stackPath, 'utf-8');
-
-    expect(stackContent).toContain(
-      "run_as_target_runner 'env' 'RU_NON_INTERACTIVE=1' 'bash' '-s'"
-    );
-  });
-
-  test('stack.cass prepares and uses a target-owned installer TMPDIR', () => {
-    const stackPath = resolve(GENERATED_DIR, 'install_stack.sh');
-    expect(existsSync(stackPath)).toBe(true);
-    const stackContent = readFileSync(stackPath, 'utf-8');
-
-    expect(stackContent).toContain(
-      `local verified_installer_tmpdir_template="$TARGET_HOME"'/.cache/gtbi/installer-tmp/cass.XXXXXX'`
-    );
-    expect(stackContent).toContain('run_as_target mkdir -p "$verified_installer_tmpdir_parent"');
-    expect(stackContent).toContain(
-      'verified_installer_tmpdir="$(run_as_target mktemp -d "$verified_installer_tmpdir_template" 2>/dev/null)"'
-    );
-    expect(stackContent).toContain(
-      `run_as_target_runner 'env' "TMPDIR=$verified_installer_tmpdir" 'bash' '-s' '--' '--easy-mode' '--verify'`
     );
   });
 
@@ -369,96 +305,6 @@ describe('Generated verified installer args', () => {
     expect(agentsContent).not.toContain('gtbi_child_run_root_bin_command install -m 0755');
     expect(agentsContent).toContain('gtbi_install_executable_into_primary_bin() {');
     expect(agentsContent).toContain('gtbi_link_primary_bin_command() {');
-  });
-
-  test('stack.meta_skill falls back to cargo source install on Linux ARM64', () => {
-    const stackPath = resolve(GENERATED_DIR, 'install_stack.sh');
-    expect(existsSync(stackPath)).toBe(true);
-    const stackContent = readFileSync(stackPath, 'utf-8');
-
-    expect(stackContent).toContain('meta_skill has no prebuilt Linux ARM64 release asset yet');
-    expect(stackContent).toContain('[[ "$(uname -s 2>/dev/null)" == "Linux" ]]');
-    expect(stackContent).toContain('[[ "$(uname -m 2>/dev/null)" == "aarch64" ]]');
-    expect(stackContent).toContain('[[ "$(uname -m 2>/dev/null)" == "arm64" ]]');
-    expect(stackContent).toContain(
-      'run_as_target_shell "command -v cargo >/dev/null 2>&1 && cargo install --git https://github.com/Dicklesworthstone/meta_skill --force"'
-    );
-  });
-
-  test('stack.frankensearch selects lite Linux release artifacts', () => {
-    const stackPath = resolve(GENERATED_DIR, 'install_stack.sh');
-    expect(existsSync(stackPath)).toBe(true);
-    const stackContent = readFileSync(stackPath, 'utf-8');
-
-    expect(stackContent).toContain('local -a fsfs_installer_args=(\'--easy-mode\')');
-    expect(stackContent).toContain('fsfs_target="x86_64-unknown-linux-musl"');
-    expect(stackContent).toContain('fsfs_target="aarch64-unknown-linux-musl"');
-    expect(stackContent).toContain("https://github.com/Dicklesworthstone/frankensearch/releases/latest");
-    expect(stackContent).toContain("https://api.github.com/repos/Dicklesworthstone/frankensearch/releases?per_page=10");
-    expect(stackContent).toContain('done < <(gtbi_curl --connect-timeout 30 --max-time 60');
-    expect(stackContent).toContain('fsfs_candidate="$(gtbi_curl --connect-timeout 30 --max-time 60');
-    expect(stackContent).toContain('fsfs_checksum="$(gtbi_curl --connect-timeout 30 --max-time 60');
-    expect(stackContent).not.toContain('done < <(curl -fsSL --connect-timeout 30 --max-time 60');
-    expect(stackContent).not.toContain('fsfs_candidate="$(curl -fsSL --connect-timeout 30 --max-time 60');
-    expect(stackContent).not.toContain('fsfs_checksum="$(curl -fsSL --connect-timeout 30 --max-time 60');
-    expect(stackContent).toContain('for fsfs_version in "${fsfs_candidates[@]}"; do');
-    expect(stackContent).toContain('fsfs-lite-${fsfs_version_bare}-${fsfs_target}.tar.xz');
-    expect(stackContent).toContain('awk \'NR == 1 { print $1 }\'');
-    expect(stackContent).toContain('--checksum "${fsfs_checksum,,}"');
-    expect(stackContent).toContain('unable to resolve a FrankenSearch lite artifact with a checksum');
-    expect(stackContent).toContain('run_as_target_runner \'bash\' \'-s\' \'--\' "${fsfs_installer_args[@]}"');
-  });
-
-  test('stack.slb Go PATH setup ignores commented PATH examples', () => {
-    const stackPath = resolve(GENERATED_DIR, 'install_stack.sh');
-    expect(existsSync(stackPath)).toBe(true);
-    const stackContent = readFileSync(stackPath, 'utf-8');
-
-    expect(stackContent).toContain('gtbi_has_active_go_bin_path() {');
-    expect(stackContent).toContain('if ! gtbi_has_active_go_bin_path ~/.zshrc; then');
-    expect(stackContent).not.toContain("grep -q 'export PATH=.*\\$HOME/go/bin' ~/.zshrc");
-  });
-
-  test('stack.pcr emits a pre-install Claude check before the verified installer', () => {
-    const stackPath = resolve(GENERATED_DIR, 'install_stack.sh');
-    expect(existsSync(stackPath)).toBe(true);
-    const stackContent = readFileSync(stackPath, 'utf-8');
-
-    const precheckIndex = stackContent.indexOf("log_warn \"stack.pcr: Skipping PCR - Claude Code not found\"");
-    const installerIndex = stackContent.indexOf('local tool="pcr"');
-
-    expect(precheckIndex).toBeGreaterThanOrEqual(0);
-    expect(stackContent).toContain("command -v claude >/dev/null 2>&1");
-    expect(installerIndex).toBeGreaterThan(precheckIndex);
-  });
-
-  test('stack hook verification parses Claude settings hook commands instead of grepping raw text', () => {
-    const stackPath = resolve(GENERATED_DIR, 'install_stack.sh');
-    expect(existsSync(stackPath)).toBe(true);
-    const stackContent = readFileSync(stackPath, 'utf-8');
-
-    expect(stackContent).toContain('claude_settings_has_command_hook() {');
-    expect(stackContent).toContain("dcg_command_pattern='(^|[[:space:]/])dcg([[:space:]]|$)'");
-    expect(stackContent).toContain(
-      "pcr_command_pattern='(^|[[:space:]/])claude-post-compact-reminder([[:space:]]|$)'"
-    );
-    expect(stackContent).not.toContain('grep -q "dcg" "$settings"');
-    expect(stackContent).not.toContain('grep -q "dcg" "$alt_settings"');
-    expect(stackContent).not.toContain('grep -q "claude-post-compact-reminder" "$settings"');
-    expect(stackContent).not.toContain('grep -q "claude-post-compact-reminder" "$alt_settings"');
-  });
-
-  test('multi-line install summaries skip comment-only lines', () => {
-    const stackPath = resolve(GENERATED_DIR, 'install_stack.sh');
-    expect(existsSync(stackPath)).toBe(true);
-    const stackContent = readFileSync(stackPath, 'utf-8');
-
-    expect(stackContent).not.toContain(
-      'install command failed: # Wait for the managed Agent Mail service to become healthy.'
-    );
-    expect(stackContent).toContain(
-      'install command failed: until agent_mail_service_curl -fsS --max-time 10 http://127.0.0.1:8765/health/liveness >/dev/null 2>&1; do'
-    );
   });
 
   test('multi-line install summaries skip leading helper function bodies', () => {
@@ -798,7 +644,7 @@ describe('Utils: getCategories', () => {
     const categories = getCategories(manifest);
 
     // Expected categories based on manifest
-    const expectedCategories = ['base', 'users', 'shell', 'cli', 'lang', 'tools', 'agents', 'db', 'cloud', 'stack', 'gtbi'];
+    const expectedCategories = ['base', 'users', 'filesystem', 'shell', 'cli', 'network', 'lang', 'tools', 'agents', 'stack', 'gtbi'];
 
     for (const cat of expectedCategories) {
       expect(categories).toContain(cat);

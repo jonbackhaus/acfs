@@ -3375,19 +3375,6 @@ EOF
     assert_success
 }
 
-@test "generated install_cloud: preserves wrangler bun shim fallback" {
-    local generated="$PROJECT_ROOT/scripts/generated/install_cloud.sh"
-
-    run grep -F 'command -v node >/dev/null 2>&1' "$generated"
-    assert_success
-
-    run grep -F 'exec "$HOME/.bun/bin/bun" x wrangler@latest "$@"' "$generated"
-    assert_success
-
-    run grep -F 'gtbi_install_executable_into_primary_bin "$wrapper_tmp" "wrangler"' "$generated"
-    assert_success
-}
-
 @test "generated installers: reject invalid TARGET_HOME and GTBI_BIN_DIR" {
     local generated="$PROJECT_ROOT/scripts/generated/install_all.sh"
     local doctor_checks="$PROJECT_ROOT/scripts/generated/doctor_checks.sh"

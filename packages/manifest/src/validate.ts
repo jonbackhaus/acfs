@@ -193,12 +193,10 @@ const RESERVED_FUNCTION_NAMES = new Set([
   'install_lang',
   'install_tools',
   'install_agents',
-  'install_cloud',
   'install_stack',
   'install_gtbi',
   'install_shell',
   'install_cli',
-  'install_db',
   'install_users',
   'install_filesystem',
   'install_network',
@@ -236,7 +234,6 @@ const RESERVED_FUNCTION_NAMES = new Set([
   'install_cli_tools',
   'install_languages',
   'install_agents_phase',
-  'install_cloud_db',
   'install_stack_phase',
 
   // Common shell builtins/functions that should never be shadowed

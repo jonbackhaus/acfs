@@ -569,27 +569,6 @@ gtbi_log_feature_flags() {
 }
 
 # ------------------------------------------------------------
-# Legacy flag mapping (mjt.5.5)
-# Maps old-style --skip-* flags to SKIP_MODULES array
-# ------------------------------------------------------------
-gtbi_apply_legacy_skips() {
-    # Map legacy flags to module skips
-    # These globals are set by parse_args in install.sh
-
-    if [[ "${SKIP_POSTGRES:-false}" == "true" ]]; then
-        SKIP_MODULES+=("db.postgres18")
-    fi
-
-    if [[ "${SKIP_VAULT:-false}" == "true" ]]; then
-        SKIP_MODULES+=("tools.vault")
-    fi
-
-    if [[ "${SKIP_CLOUD:-false}" == "true" ]]; then
-        SKIP_MODULES+=("cloud.wrangler" "cloud.supabase" "cloud.vercel")
-    fi
-}
-
-# ------------------------------------------------------------
 # Command execution helpers (heredoc-friendly)
 # ------------------------------------------------------------
 

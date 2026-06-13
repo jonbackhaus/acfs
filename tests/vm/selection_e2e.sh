@@ -133,7 +133,7 @@ test_list_modules_shows_all() {
 
     # Check for a variety of modules across categories
     local missing=""
-    for mod in "base.system" "lang.bun" "lang.rust" "agents.claude" "tools.vault"; do
+    for mod in "base.system" "lang.bun" "lang.rust" "agents.claude" "tools.atuin"; do
         if ! echo "$output" | grep -q "$mod"; then
             missing="$missing $mod"
         fi
@@ -199,65 +199,6 @@ test_no_deps_prints_warning() {
 }
 
 # ============================================================
-# Test Cases: Legacy Flag Mapping
-# ============================================================
-
-test_skip_vault_with_explicit_only_fails() {
-    local name="--skip-vault --only tools.vault fails"
-    local output rc
-
-    # When --only requests a module that a skip flag excludes, the selector should
-    # fail instead of silently previewing an empty install plan.
-    set +e
-    output=$(bash "$REPO_ROOT/install.sh" --print-plan --only tools.vault --skip-vault 2>&1)
-    rc=$?
-    set -e
-
-    if [[ $rc -ne 0 ]] && echo "$output" | grep -qiE "selection|only|skip"; then
-        pass "$name"
-        return 0
-    fi
-
-    fail "$name" "Expected selector failure when module is both --only and --skip (rc=$rc)"
-}
-
-test_skip_postgres_with_explicit_only_fails() {
-    local name="--skip-postgres --only db.postgres18 fails"
-    local output rc
-
-    set +e
-    output=$(bash "$REPO_ROOT/install.sh" --print-plan --only db.postgres18 --skip-postgres 2>&1)
-    rc=$?
-    set -e
-
-    if [[ $rc -ne 0 ]] && echo "$output" | grep -qiE "selection|only|skip"; then
-        pass "$name"
-        return 0
-    else
-        fail "$name" "Expected selector failure when module is both --only and --skip (rc=$rc)"
-    fi
-}
-
-test_legacy_flags_populate_skip_modules() {
-    local name="Legacy flags add modules to SKIP_MODULES array"
-    # This is verified by the unit tests in test_install_helpers.sh
-    # Here we just verify the integration works end-to-end
-    # by checking that skip flags don't cause errors
-    local output rc
-
-    set +e
-    output=$(bash "$REPO_ROOT/install.sh" --print-plan --skip-vault --skip-postgres 2>&1)
-    rc=$?
-    set -e
-
-    if [[ $rc -eq 0 ]]; then
-        pass "$name"
-    else
-        fail "$name" "Legacy flags should not cause errors (rc=$rc)"
-    fi
-}
-
-# ============================================================
 # Test Cases: Phase Selection
 # ============================================================
 
@@ -304,11 +245,6 @@ main() {
     test_unknown_skip_module_fails
     test_broken_dependency_fails
     test_no_deps_prints_warning
-
-    # Legacy flag tests
-    test_skip_vault_with_explicit_only_fails
-    test_skip_postgres_with_explicit_only_fails
-    test_legacy_flags_populate_skip_modules
 
     # Phase selection tests
     test_only_phase_limits_selection
