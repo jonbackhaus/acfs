@@ -1151,9 +1151,7 @@ The `--deep` flag runs functional tests beyond binary existence:
 | Category | Checks |
 |----------|--------|
 | **Agent Auth** | Claude config, Codex OAuth, Gemini credentials |
-| **Database** | PostgreSQL connection, ubuntu role exists |
-| **Cloud CLIs** | `gh auth status`, `wrangler whoami`, Supabase/Vercel tokens |
-| **Vault** | `VAULT_ADDR` configured |
+| **GitHub CLI** | `gh auth status` |
 
 Deep checks use 5-second timeouts to avoid hanging on network issues. Results are cached for 5 minutes to speed up repeated runs.
 
@@ -1448,7 +1446,6 @@ Component update logic with version tracking and logging:
 update_apt()       # apt update/upgrade with lock detection
 update_bun()       # bun upgrade with version tracking
 update_agents()    # Claude, Codex, Gemini (version before/after)
-update_cloud()     # Wrangler, Supabase, Vercel (Supabase uses verified release tarball)
 update_rust()      # rustup update stable
 update_uv()        # uv self update
 update_go()        # Go toolchain update
@@ -1976,16 +1973,13 @@ gtbi/
 │   │   ├── install_cli.sh        # CLI tools
 │   │   ├── install_lang.sh       # Language runtimes
 │   │   ├── install_agents.sh     # AI coding agents
-│   │   ├── install_cloud.sh      # Cloud CLIs
-│   │   ├── install_stack.sh      # Dicklesworthstone stack
+│   │   ├── install_stack.sh      # Gastown stack (dolt, bd, gastown)
 │   │   ├── install_all.sh        # Master installer
 │   │   └── doctor_checks.sh      # Verification checks
-│   ├── providers/                # VPS provider guides
-│   │   ├── ovh.md
-│   │   ├── contabo.md
-│   │   └── hetzner.md
-│   └── sync/
-│       └── sync_ntm_palette.sh   # Sync NTM command palette
+│   └── providers/                # VPS provider guides
+│       ├── ovh.md
+│       ├── contabo.md
+│       └── hetzner.md
 │
 ├── .github/
 │   └── workflows/
@@ -2136,26 +2130,6 @@ harness_summary  # Outputs: 15 passed, 0 failed, 2 skipped
 # Web E2E tests
 ./tests/web/run_e2e.sh
 ```
-
-### Sync Scripts
-
-Sync scripts keep GTBI documentation aligned with upstream projects:
-
-```bash
-# Sync NTM command palette from upstream
-./scripts/sync/sync_ntm_palette.sh
-
-# Check if update available (without downloading)
-./scripts/sync/sync_ntm_palette.sh --check
-```
-
-**Current Sync Sources:**
-
-| Script | Source | Destination |
-|--------|--------|-------------|
-| `sync_ntm_palette.sh` | NTM repo `command_palette.md` | `gtbi/onboard/docs/ntm/` |
-
-All sync scripts use the security library for HTTPS enforcement and content hashing.
 
 ### Requirements
 
@@ -2441,10 +2415,8 @@ scripts/generated/
 ├── install_network.sh     # Tailscale
 ├── install_lang.sh        # bun, uv, rust, go
 ├── install_tools.sh       # ast-grep, atuin, zoxide
-├── install_agents.sh      # claude, codex, gemini
-├── install_db.sh          # PostgreSQL 18, Vault
-├── install_cloud.sh       # wrangler, supabase, vercel
-├── install_stack.sh       # Dicklesworthstone 10-tool stack + utilities
+├── install_agents.sh      # claude, codex, gemini, opencode
+├── install_stack.sh       # Gastown stack (dolt, bd, gastown)
 ├── install_gtbi.sh        # GTBI config deployment
 ├── install_all.sh         # Orchestration helper
 ├── doctor_checks.sh       # Health verification
@@ -3781,9 +3753,6 @@ The installer supports extensive command-line customization:
 
 **Skip Flags:**
 ```bash
---skip-postgres        # Skip PostgreSQL 18
---skip-vault           # Skip HashiCorp Vault
---skip-cloud           # Skip Wrangler, Supabase, Vercel CLIs
 --skip-preflight       # Skip pre-flight validation
 ```
 
