@@ -262,7 +262,6 @@ UPDATE_LAST_COMMAND_OUTPUT=""
 # Flags
 UPDATE_APT=true
 UPDATE_AGENTS=true
-UPDATE_CLOUD=true
 UPDATE_RUNTIME=true
 UPDATE_STACK=true
 UPDATE_SHELL=true
@@ -843,7 +842,7 @@ get_version() {
                 version="unknown"
             fi
             ;;
-        claude|codex|gemini|wrangler|supabase|vercel)
+        claude|codex|gemini)
             tool_bin="$(update_binary_path "$tool" 2>/dev/null || true)"
             if [[ -n "$tool_bin" ]]; then
                 version=$("$tool_bin" --version 2>/dev/null | head -1 || echo "unknown")
@@ -5138,277 +5137,6 @@ run_cmd_claude_update() {
     fi
 }
 
-supabase_release_update_script() {
-    cat <<'EOF'
-set -euo pipefail
-
-supabase_system_binary_path() {
-  local name="${1:-}"
-  local candidate=""
-
-  [[ -n "$name" ]] || return 1
-  case "$name" in
-    .|..) return 1 ;;
-    *[!A-Za-z0-9._+-]*) return 1 ;;
-  esac
-
-  for candidate in \
-    "/usr/bin/$name" \
-    "/bin/$name" \
-    "/usr/local/bin/$name" \
-    "/usr/local/sbin/$name" \
-    "/usr/sbin/$name" \
-    "/sbin/$name"
-  do
-    [[ -x "$candidate" ]] || continue
-    printf '%s\n' "$candidate"
-    return 0
-  done
-
-  return 1
-}
-
-SUPABASE_CURL_BIN="$(supabase_system_binary_path curl 2>/dev/null || true)"
-SUPABASE_CURL_ARGS=(--connect-timeout 30 --max-time 300 -fsSL)
-if [[ -n "$SUPABASE_CURL_BIN" ]] && curl_help="$("$SUPABASE_CURL_BIN" --help all 2>/dev/null)" && [[ "$curl_help" == *"--proto"* ]]; then
-  SUPABASE_CURL_ARGS=(--proto '=https' --proto-redir '=https' --connect-timeout 30 --max-time 300 -fsSL)
-fi
-unset curl_help
-
-supabase_curl() {
-  if [[ -z "$SUPABASE_CURL_BIN" || ! -x "$SUPABASE_CURL_BIN" ]]; then
-    echo "Supabase CLI: trusted curl not found" >&2
-    return 127
-  fi
-
-  "$SUPABASE_CURL_BIN" "${SUPABASE_CURL_ARGS[@]}" "$@"
-}
-
-supabase_sha256_file() {
-  local filepath="$1"
-  local sha_bin=""
-  local output=""
-  local hash=""
-
-  if sha_bin="$(supabase_system_binary_path sha256sum 2>/dev/null)"; then
-    output="$("$sha_bin" "$filepath")" || return 1
-  elif sha_bin="$(supabase_system_binary_path shasum 2>/dev/null)"; then
-    output="$("$sha_bin" -a 256 "$filepath")" || return 1
-  else
-    echo "Supabase CLI: no trusted SHA256 tool available (need sha256sum or shasum)" >&2
-    return 1
-  fi
-
-  read -r hash _ <<< "$output"
-  [[ -n "$hash" ]] || return 1
-  printf '%s\n' "$hash"
-}
-
-arch=""
-case "$(uname -m)" in
-  x86_64) arch="amd64" ;;
-  aarch64|arm64) arch="arm64" ;;
-  *)
-    echo "Supabase CLI: unsupported architecture ($(uname -m))" >&2
-    exit 1
-    ;;
-esac
-
-release_url="$(supabase_curl -o /dev/null -w '%{url_effective}\n' "https://github.com/supabase/cli/releases/latest" 2>/dev/null)" || true
-tag="${release_url##*/}"
-if [[ -z "$tag" ]] || [[ "$tag" != v* ]]; then
-  echo "Supabase CLI: failed to resolve latest release tag" >&2
-  exit 1
-fi
-
-version="${tag#v}"
-base_url="https://github.com/supabase/cli/releases/download/${tag}"
-tarball="supabase_linux_${arch}.tar.gz"
-# Supabase CLI v2.99.0 (2026-05-18) renamed the per-version asset to plain
-# `checksums.txt`. Older releases still ship `supabase_${version}_checksums.txt`.
-# Try the new name first, then fall back to the legacy one so both work. (#282)
-checksums_new="checksums.txt"
-checksums_legacy="supabase_${version}_checksums.txt"
-
-tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/gtbi-supabase.XXXXXX" 2>/dev/null)" || tmp_dir=""
-tmp_tgz="$(mktemp "${TMPDIR:-/tmp}/gtbi-supabase.tgz.XXXXXX" 2>/dev/null)" || tmp_tgz=""
-tmp_checksums="$(mktemp "${TMPDIR:-/tmp}/gtbi-supabase.sha.XXXXXX" 2>/dev/null)" || tmp_checksums=""
-extracted_bin=""
-
-if [[ -z "$tmp_dir" ]] || [[ -z "$tmp_tgz" ]] || [[ -z "$tmp_checksums" ]]; then
-  echo "Supabase CLI: failed to create temp files" >&2
-  exit 1
-fi
-
-cleanup() {
-  [[ -n "${tmp_tgz:-}" ]] && rm -f "$tmp_tgz" 2>/dev/null || true
-  [[ -n "${tmp_checksums:-}" ]] && rm -f "$tmp_checksums" 2>/dev/null || true
-  [[ -n "${extracted_bin:-}" ]] && rm -f "$extracted_bin" 2>/dev/null || true
-  if [[ -n "${tmp_dir:-}" ]] && [[ -d "$tmp_dir" ]]; then
-    find "$tmp_dir" -type f -delete 2>/dev/null || true
-    find "$tmp_dir" -depth -type d -empty -delete 2>/dev/null || true
-  fi
-}
-trap cleanup EXIT
-
-if ! supabase_curl -o "$tmp_tgz" "${base_url}/${tarball}" 2>/dev/null; then
-  echo "Supabase CLI: failed to download ${tarball}" >&2
-  exit 1
-fi
-if ! supabase_curl -o "$tmp_checksums" "${base_url}/${checksums_new}" 2>/dev/null \
-   && ! supabase_curl -o "$tmp_checksums" "${base_url}/${checksums_legacy}" 2>/dev/null; then
-  echo "Supabase CLI: failed to download checksums (tried ${checksums_new} and ${checksums_legacy})" >&2
-  exit 1
-fi
-
-expected_sha="$(awk -v tb="$tarball" '$2 == tb {print $1; exit}' "$tmp_checksums" 2>/dev/null)"
-if [[ -z "$expected_sha" ]]; then
-  echo "Supabase CLI: checksum entry not found for ${tarball}" >&2
-  exit 1
-fi
-
-actual_sha=""
-if ! actual_sha="$(supabase_sha256_file "$tmp_tgz")"; then
-  exit 1
-fi
-
-if [[ -z "$actual_sha" ]] || [[ "$actual_sha" != "$expected_sha" ]]; then
-  echo "Supabase CLI: checksum mismatch" >&2
-  echo "  Expected: $expected_sha" >&2
-  echo "  Actual:   ${actual_sha:-<missing>}" >&2
-  exit 1
-fi
-
-if ! tar -xzf "$tmp_tgz" -C "$tmp_dir" --no-same-owner --no-same-permissions supabase 2>/dev/null; then
-  tar -xzf "$tmp_tgz" -C "$tmp_dir" --no-same-owner --no-same-permissions 2>/dev/null || {
-    echo "Supabase CLI: failed to extract tarball" >&2
-    exit 1
-  }
-fi
-
-extracted_bin="$tmp_dir/supabase"
-if [[ ! -f "$extracted_bin" ]]; then
-  extracted_bin="$(find "$tmp_dir" -maxdepth 2 -type f -name supabase -print -quit 2>/dev/null || true)"
-fi
-if [[ -z "$extracted_bin" ]] || [[ ! -f "$extracted_bin" ]]; then
-  echo "Supabase CLI: binary not found after extract" >&2
-  exit 1
-fi
-
-mkdir -p "${GTBI_PRIMARY_BIN_DIR:-${GTBI_BIN_DIR:-$HOME/.local/bin}}"
-install -m 0755 "$extracted_bin" "${GTBI_PRIMARY_BIN_DIR:-${GTBI_BIN_DIR:-$HOME/.local/bin}}/supabase"
-
-if command -v timeout &>/dev/null; then
-  timeout 5 "${GTBI_PRIMARY_BIN_DIR:-${GTBI_BIN_DIR:-$HOME/.local/bin}}/supabase" --version >/dev/null 2>&1 || {
-    echo "Supabase CLI: installed but failed to run" >&2
-    exit 1
-  }
-else
-  "${GTBI_PRIMARY_BIN_DIR:-${GTBI_BIN_DIR:-$HOME/.local/bin}}/supabase" --version >/dev/null 2>&1 || {
-    echo "Supabase CLI: installed but failed to run" >&2
-    exit 1
-  }
-fi
-EOF
-}
-
-update_cloud() {
-    if [[ "$UPDATE_CLOUD" != "true" ]]; then
-        return 0
-    fi
-
-    log_section "Cloud CLIs"
-
-    local bun_bin=""
-    local has_bun=false
-    bun_bin="$(update_binary_path bun 2>/dev/null || true)"
-    [[ -n "$bun_bin" ]] && has_bun=true
-
-    # Wrangler (--trust allows postinstall scripts for native binaries)
-    if update_binary_exists wrangler || [[ "$FORCE_MODE" == "true" ]]; then
-        if [[ "$has_bun" == "true" ]]; then
-            run_cmd_bun_with_retry "Wrangler (Cloudflare)" update_run_in_target_context "" "$bun_bin" install -g --trust wrangler@latest
-        else
-            log_item "fail" "Wrangler (Cloudflare)" "bun not installed (required)"
-        fi
-    else
-        log_item "skip" "Wrangler" "not installed"
-    fi
-
-    # Supabase (verified GitHub release binary; installed to ~/.local/bin)
-    if update_binary_exists supabase || [[ "$FORCE_MODE" == "true" ]]; then
-        local supabase_primary_bin=""
-        capture_version_before "supabase"
-        supabase_primary_bin="$(update_runtime_primary_bin_dir 2>/dev/null || true)"
-        if [[ -z "$supabase_primary_bin" ]]; then
-            log_item "fail" "Supabase CLI" "unable to resolve target install bin"
-        else
-            run_cmd "Supabase CLI" update_run_in_target_context "GTBI_PRIMARY_BIN_DIR=$supabase_primary_bin" bash -c "$(supabase_release_update_script)"
-            # Refresh PATH in case the target bin was created during install.
-            ensure_path
-            if capture_version_after "supabase"; then
-                update_say "       ${DIM}%s → %s${NC}\n" "${VERSION_BEFORE[supabase]}" "${VERSION_AFTER[supabase]}"
-            fi
-        fi
-    else
-        log_item "skip" "Supabase CLI" "not installed"
-    fi
-
-    # Vercel (--trust allows postinstall scripts for native binaries)
-    if update_binary_exists vercel || [[ "$FORCE_MODE" == "true" ]]; then
-        if [[ "$has_bun" == "true" ]]; then
-            run_cmd_bun_with_retry "Vercel CLI" update_run_in_target_context "" "$bun_bin" install -g --trust vercel@latest
-        else
-            log_item "fail" "Vercel CLI" "bun not installed (required)"
-        fi
-    else
-        log_item "skip" "Vercel CLI" "not installed"
-    fi
-
-    # GitHub CLI (gh) - update extensions
-    local gh_bin=""
-    gh_bin="$(update_binary_path gh 2>/dev/null || true)"
-    if [[ -n "$gh_bin" ]]; then
-        capture_version_before "gh"
-        # Update gh extensions if any are installed
-        local gh_extensions=0
-        gh_extensions=$("$gh_bin" extension list 2>/dev/null | grep -v "no installed extensions found" | grep -c -v "No extensions installed" || true)
-        gh_extensions=$((gh_extensions + 0))  # Strip whitespace, ensure integer
-        if [[ $gh_extensions -gt 0 ]]; then
-            run_cmd "GitHub CLI extensions" "$gh_bin" extension upgrade --all
-        else
-            log_item "ok" "GitHub CLI" "no extensions to update"
-        fi
-        # gh itself is updated via apt, log current version
-        if capture_version_after "gh"; then
-            update_say "       ${DIM}version: %s${NC}\n" "${VERSION_AFTER[gh]}"
-        fi
-    else
-        log_item "skip" "GitHub CLI" "not installed"
-    fi
-
-    # Google Cloud SDK (gcloud)
-    local gcloud_bin=""
-    gcloud_bin="$(update_binary_path gcloud 2>/dev/null || true)"
-    if [[ -n "$gcloud_bin" ]]; then
-        if dpkg -s google-cloud-cli >/dev/null 2>&1; then
-            # apt-managed installs disable `gcloud components update`;
-            # the package is updated via apt-get instead.
-            log_item "ok" "Google Cloud SDK" "apt-managed (update via apt-get upgrade)"
-            log_to_file "gcloud is apt-managed; components update disabled by Google. Update with: sudo apt-get install -y --only-upgrade google-cloud-cli"
-        else
-            capture_version_before "gcloud"
-            # gcloud components update requires --quiet for non-interactive
-            run_cmd "Google Cloud SDK" "$gcloud_bin" components update --quiet
-            if capture_version_after "gcloud"; then
-                update_say "       ${DIM}%s → %s${NC}\n" "${VERSION_BEFORE[gcloud]}" "${VERSION_AFTER[gcloud]}"
-            fi
-        fi
-    else
-        log_item "skip" "Google Cloud SDK" "not installed"
-    fi
-}
-
 update_rust() {
     if [[ "$UPDATE_RUNTIME" != "true" ]]; then
         return 0
@@ -5959,7 +5687,6 @@ USAGE:
 CATEGORY OPTIONS (select what to update):
   --apt-only         Only update system packages (apt)
   --agents-only      Only update coding agents (Claude, Codex, Gemini)
-  --cloud-only       Only update cloud CLIs (Wrangler, Supabase, Vercel, gh, gcloud)
   --shell-only       Only update shell tools (OMZ, P10K, plugins, Atuin, Zoxide)
   --runtime-only     Only update runtimes (Bun, Rust, uv, Go)
   --stack-only       Only update Dicklesworthstone stack tools
@@ -5969,7 +5696,6 @@ SKIP OPTIONS (exclude categories from update):
   --no-self-update   Skip GTBI self-update
   --no-apt           Skip apt update/upgrade
   --no-agents        Skip coding agent updates
-  --no-cloud         Skip cloud CLI updates
   --no-shell         Skip shell tool updates
   --no-runtime       Skip runtime updates (Bun, Rust, uv, Go)
   --no-stack         Skip Dicklesworthstone stack tool updates
@@ -6089,7 +5815,6 @@ main() {
             --apt-only)
                 UPDATE_APT=true
                 UPDATE_AGENTS=false
-                UPDATE_CLOUD=false
                 UPDATE_RUNTIME=false
                 UPDATE_STACK=false
                 UPDATE_SHELL=false
@@ -6098,16 +5823,6 @@ main() {
             --agents-only)
                 UPDATE_APT=false
                 UPDATE_AGENTS=true
-                UPDATE_CLOUD=false
-                UPDATE_RUNTIME=false
-                UPDATE_STACK=false
-                UPDATE_SHELL=false
-                shift
-                ;;
-            --cloud-only)
-                UPDATE_APT=false
-                UPDATE_AGENTS=false
-                UPDATE_CLOUD=true
                 UPDATE_RUNTIME=false
                 UPDATE_STACK=false
                 UPDATE_SHELL=false
@@ -6116,7 +5831,6 @@ main() {
             --shell-only)
                 UPDATE_APT=false
                 UPDATE_AGENTS=false
-                UPDATE_CLOUD=false
                 UPDATE_RUNTIME=false
                 UPDATE_STACK=false
                 UPDATE_SHELL=true
@@ -6125,7 +5839,6 @@ main() {
             --runtime-only)
                 UPDATE_APT=false
                 UPDATE_AGENTS=false
-                UPDATE_CLOUD=false
                 UPDATE_RUNTIME=true
                 UPDATE_STACK=false
                 UPDATE_SHELL=false
@@ -6134,7 +5847,6 @@ main() {
             --stack-only)
                 UPDATE_APT=false
                 UPDATE_AGENTS=false
-                UPDATE_CLOUD=false
                 UPDATE_RUNTIME=false
                 UPDATE_STACK=true
                 UPDATE_SHELL=false
@@ -6150,10 +5862,6 @@ main() {
                 ;;
             --no-agents)
                 UPDATE_AGENTS=false
-                shift
-                ;;
-            --no-cloud)
-                UPDATE_CLOUD=false
                 shift
                 ;;
             --no-shell)
@@ -6269,7 +5977,6 @@ main() {
     update_apt
     update_bun
     update_agents
-    update_cloud
     update_rust
     update_cargo_tools
     update_uv
