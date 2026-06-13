@@ -2,17 +2,14 @@
 # ============================================================
 # GTBI Landing Plane - read-only closeout checklist
 #
-# Builds an auditable end-of-session checklist for Beads, Agent Mail,
-# reservations, quality gates, exact-file staging, and handoff.
+# Builds an auditable end-of-session checklist for Beads, quality gates,
+# exact-file staging, and handoff.
 # ============================================================
 
 set -euo pipefail
 
 LANDING_JSON=false
 LANDING_GATES_PASSED="${GTBI_LAND_GATES_PASSED:-false}"
-LANDING_MAIL_SENT="${GTBI_LAND_MAIL_SENT:-unknown}"
-LANDING_AGENT_NAME="${GTBI_LAND_AGENT_NAME:-${AGENT_NAME:-unknown-agent}}"
-LANDING_PROJECT_KEY="${GTBI_LAND_PROJECT_KEY:-$(pwd)}"
 LANDING_THREAD_ID="${GTBI_LAND_THREAD_ID:-}"
 LANDING_COMMIT_MESSAGE="${GTBI_LAND_COMMIT_MESSAGE:-close out session work}"
 
@@ -24,16 +21,12 @@ LANDING_BEADS_DB_DIRTY=false
 LANDING_BEADS_JSONL_DIRTY=false
 LANDING_BEADS_SYNC_STATUS="unknown"
 LANDING_BEADS_IN_PROGRESS_IDS=()
-LANDING_RESERVATION_PATHS=()
 LANDING_NEXT_COMMANDS=()
 LANDING_WARNINGS=()
 
 LANDING_GATES_STATUS="pass"
 LANDING_BEADS_STATUS="pass"
-LANDING_MAIL_STATUS="warn"
-LANDING_RESERVATIONS_STATUS="warn"
 LANDING_STATUS="pass"
-LANDING_RESERVATION_COUNT=0
 
 declare -gA LANDING_CHANGED_SEEN=()
 declare -gA LANDING_COMMAND_SEEN=()
@@ -47,19 +40,14 @@ Read-only closeout assistant for agent work sessions.
 Options:
   --json              Emit machine-readable JSON
   --gates-passed      Mark quality gates as already completed
-  --mail-sent         Mark Agent Mail handoff as already sent
-  --agent-name NAME   Agent Mail identity for handoff/reservation guidance
-  --project-key PATH  Agent Mail project key (default: current directory)
-  --thread-id ID      Beads/Mail thread id for completion handoff
+  --thread-id ID      Beads issue id for completion handoff
   --commit-message M  Commit message placeholder for the suggested commit
   --help, -h          Show this help
 
 Environment for tests or nonstandard shells:
   GTBI_LAND_GIT_STATUS_FILE       File containing git status --porcelain=v1 output
   GTBI_LAND_IN_PROGRESS_JSON      br list --status in_progress --json payload or file path
-  GTBI_LAND_RESERVATIONS_JSON     Active reservation payload or file path
   GTBI_LAND_GATES_PASSED=true     Same as --gates-passed
-  GTBI_LAND_MAIL_SENT=true        Same as --mail-sent
 EOF
 }
 
@@ -73,26 +61,6 @@ landing_parse_args() {
             --gates-passed)
                 LANDING_GATES_PASSED=true
                 shift
-                ;;
-            --mail-sent)
-                LANDING_MAIL_SENT=true
-                shift
-                ;;
-            --agent-name)
-                if [[ -z "${2:-}" || "$2" == -* ]]; then
-                    echo "Error: --agent-name requires a value" >&2
-                    return 2
-                fi
-                LANDING_AGENT_NAME="$2"
-                shift 2
-                ;;
-            --project-key)
-                if [[ -z "${2:-}" || "$2" == -* ]]; then
-                    echo "Error: --project-key requires a path" >&2
-                    return 2
-                fi
-                LANDING_PROJECT_KEY="$2"
-                shift 2
                 ;;
             --thread-id)
                 if [[ -z "${2:-}" || "$2" == -* ]]; then
@@ -307,66 +275,6 @@ landing_collect_beads() {
     fi
 }
 
-landing_collect_reservations() {
-    local jq_bin="$1"
-    local am_bin=""
-    local payload=""
-    local path=""
-    local exit_status=0
-
-    if [[ -n "${GTBI_LAND_RESERVATIONS_JSON:-}" ]]; then
-        payload="$(landing_read_payload "$GTBI_LAND_RESERVATIONS_JSON")"
-    else
-        am_bin="$(landing_binary_path am 2>/dev/null || true)"
-        if [[ -n "$am_bin" && "$LANDING_AGENT_NAME" != "unknown-agent" ]]; then
-            set +e
-            payload="$("$am_bin" robot reservations --format json --project "$LANDING_PROJECT_KEY" --agent "$LANDING_AGENT_NAME" 2>/dev/null)"
-            exit_status=$?
-            set -e
-            if [[ $exit_status -ne 0 ]]; then
-                payload=""
-            fi
-        fi
-    fi
-
-    if [[ -z "$payload" ]]; then
-        LANDING_RESERVATIONS_STATUS="warn"
-        landing_add_warning "active reservation detection needs Agent Mail access or a reservation snapshot; release your own reservations before handoff"
-        return 0
-    fi
-
-    if ! printf '%s' "$payload" | "$jq_bin" . >/dev/null 2>&1; then
-        LANDING_RESERVATIONS_STATUS="warn"
-        landing_add_warning "reservation payload was not valid JSON"
-        return 0
-    fi
-
-    while IFS= read -r path; do
-        [[ -n "$path" ]] || continue
-        LANDING_RESERVATION_PATHS+=("$path")
-    done < <(printf '%s' "$payload" | "$jq_bin" -r '
-        def rows:
-          if type == "array" then .
-          elif (.my_reservations? | type) == "array" then .my_reservations
-          elif (.active? | type) == "array" then .active
-          elif (.reservations? | type) == "array" then .reservations
-          elif (.all_active? | type) == "array" then .all_active
-          elif (.granted? | type) == "array" then .granted
-          else [] end;
-        rows
-        | map(select((.released_ts? // null) == null))
-        | .[]
-        | (.path_pattern // .path // .file // .id // "unknown")
-    ')
-
-    LANDING_RESERVATION_COUNT="${#LANDING_RESERVATION_PATHS[@]}"
-    if [[ "$LANDING_RESERVATION_COUNT" -eq 0 ]]; then
-        LANDING_RESERVATIONS_STATUS="pass"
-    else
-        LANDING_RESERVATIONS_STATUS="warn"
-    fi
-}
-
 landing_set_statuses_and_commands() {
     local quoted=""
     local id=""
@@ -422,28 +330,13 @@ landing_set_statuses_and_commands() {
         landing_add_command "br sync --flush-only"
     fi
 
-    if landing_bool_true "$LANDING_MAIL_SENT"; then
-        LANDING_MAIL_STATUS="pass"
-    else
-        LANDING_MAIL_STATUS="warn"
-        landing_add_warning "Agent Mail completion handoff is not marked sent"
-    fi
-
-    if [[ "$LANDING_MAIL_STATUS" != "pass" ]]; then
-        landing_add_command "send_message(project_key=\"$LANDING_PROJECT_KEY\", sender_name=\"$LANDING_AGENT_NAME\", thread_id=\"${LANDING_THREAD_ID:-bd-issue-id}\", subject=\"[${LANDING_THREAD_ID:-bd-issue-id}] Completed: <summary>\", body_md=\"Summary, verification, remaining work\")"
-    fi
-
-    if [[ "$LANDING_RESERVATIONS_STATUS" != "pass" ]]; then
-        landing_add_command "release_file_reservations(project_key=\"$LANDING_PROJECT_KEY\", agent_name=\"$LANDING_AGENT_NAME\")"
-    fi
-
     if [[ ${#LANDING_CHANGED_FILES[@]} -gt 0 ]]; then
-        landing_add_command "AGENT_NAME=$LANDING_AGENT_NAME git commit -m \"$LANDING_COMMIT_MESSAGE\""
-        landing_add_command "AGENT_NAME=$LANDING_AGENT_NAME git push origin main"
+        landing_add_command "git commit -m \"$LANDING_COMMIT_MESSAGE\""
+        landing_add_command "git push origin main"
     fi
 
     LANDING_STATUS="pass"
-    if [[ "$LANDING_GATES_STATUS" != "pass" || "$LANDING_BEADS_STATUS" != "pass" || "$LANDING_MAIL_STATUS" != "pass" || "$LANDING_RESERVATIONS_STATUS" != "pass" ]]; then
+    if [[ "$LANDING_GATES_STATUS" != "pass" || "$LANDING_BEADS_STATUS" != "pass" ]]; then
         LANDING_STATUS="warn"
     fi
 }
@@ -467,7 +360,6 @@ landing_build_report() {
     local zsh_json=""
     local rust_json=""
     local in_progress_json=""
-    local reservations_json=""
     local commands_json=""
     local warnings_json=""
 
@@ -476,7 +368,6 @@ landing_build_report() {
     zsh_json="$(landing_json_array "$jq_bin" "${LANDING_ZSH_FILES[@]}")"
     rust_json="$(landing_json_array "$jq_bin" "${LANDING_RUST_FILES[@]}")"
     in_progress_json="$(landing_json_array "$jq_bin" "${LANDING_BEADS_IN_PROGRESS_IDS[@]}")"
-    reservations_json="$(landing_json_array "$jq_bin" "${LANDING_RESERVATION_PATHS[@]}")"
     commands_json="$(landing_json_array "$jq_bin" "${LANDING_NEXT_COMMANDS[@]}")"
     warnings_json="$(landing_json_array "$jq_bin" "${LANDING_WARNINGS[@]}")"
 
@@ -485,17 +376,12 @@ landing_build_report() {
         --arg gates_status "$LANDING_GATES_STATUS" \
         --arg beads_status "$LANDING_BEADS_STATUS" \
         --arg beads_sync_status "$LANDING_BEADS_SYNC_STATUS" \
-        --arg mail_status "$LANDING_MAIL_STATUS" \
-        --arg reservations_status "$LANDING_RESERVATIONS_STATUS" \
-        --arg agent_name "$LANDING_AGENT_NAME" \
-        --arg project_key "$LANDING_PROJECT_KEY" \
         --arg thread_id "$LANDING_THREAD_ID" \
         --argjson changed_files "$changed_json" \
         --argjson shell_files "$shell_json" \
         --argjson zsh_files "$zsh_json" \
         --argjson rust_files "$rust_json" \
         --argjson in_progress_ids "$in_progress_json" \
-        --argjson reservation_paths "$reservations_json" \
         --argjson next_commands "$commands_json" \
         --argjson warnings "$warnings_json" \
         '{
@@ -512,18 +398,8 @@ landing_build_report() {
             beads: {
                 status: $beads_status,
                 sync_status: $beads_sync_status,
-                in_progress_ids: $in_progress_ids
-            },
-            agent_mail: {
-                status: $mail_status,
-                agent_name: $agent_name,
-                project_key: $project_key,
+                in_progress_ids: $in_progress_ids,
                 thread_id: $thread_id
-            },
-            reservations: {
-                status: $reservations_status,
-                active_count: ($reservation_paths | length),
-                paths: $reservation_paths
             },
             next_commands: $next_commands
         }'
@@ -547,9 +423,7 @@ landing_emit_human() {
     echo ""
     echo "Checks:"
     "${jq_bin}" -r '"  quality_gates: " + .quality_gates.status' <<<"$report"
-    "${jq_bin}" -r '"  beads:        " + .beads.status + " (sync=" + .beads.sync_status + ")"' <<<"$report"
-    "${jq_bin}" -r '"  agent_mail:   " + .agent_mail.status + " (thread=" + (.agent_mail.thread_id // "") + ")"' <<<"$report"
-    "${jq_bin}" -r '"  reservations: " + .reservations.status + " (active=" + (.reservations.active_count | tostring) + ")"' <<<"$report"
+    "${jq_bin}" -r '"  beads:        " + .beads.status + " (sync=" + .beads.sync_status + ", thread=" + (.beads.thread_id // "") + ")"' <<<"$report"
 
     if [[ "$("${jq_bin}" -r '.warnings | length' <<<"$report")" != "0" ]]; then
         echo ""
@@ -584,7 +458,6 @@ landing_main() {
 
     landing_collect_changed_files
     landing_collect_beads "$jq_bin"
-    landing_collect_reservations "$jq_bin"
     landing_set_statuses_and_commands
     report="$(landing_build_report "$jq_bin")"
 
