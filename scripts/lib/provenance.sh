@@ -93,18 +93,6 @@ provenance_find_checksums_file() {
 
 provenance_default_tools() {
     cat <<'EOF'
-br|br|--version|verified_installer|https://github.com/Dicklesworthstone/beads_rust|br|
-bv|bv|--version|verified_installer|https://github.com/Dicklesworthstone/beads_viewer|bv|
-ntm|ntm|--version|verified_installer|https://github.com/Dicklesworthstone/ntm|ntm|
-rch|rch|--version|verified_installer|https://github.com/Dicklesworthstone/remote_compilation_helper|rch|
-agent_mail|am|--version|verified_installer|https://github.com/Dicklesworthstone/mcp_agent_mail_rust|mcp_agent_mail|
-ubs|ubs|--version|verified_installer|https://github.com/Dicklesworthstone/ultimate_bug_scanner|ubs|
-cass|cass|--version|verified_installer|https://github.com/Dicklesworthstone/coding_agent_session_search|cass|
-cm|cm|--version|verified_installer|https://github.com/Dicklesworthstone/cass_memory_system|cm|
-caam|caam|--version|verified_installer|https://github.com/Dicklesworthstone/coding_agent_account_manager|caam|
-dcg|dcg|--version|verified_installer|https://github.com/Dicklesworthstone/destructive_command_guard|dcg|
-slb|slb|--version|verified_installer|https://github.com/Dicklesworthstone/simultaneous_launch_button|slb|
-ru|ru|--version|verified_installer|https://github.com/Dicklesworthstone/repo_updater|ru|
 bun|bun|--version|verified_installer|https://bun.sh/install|bun|
 rust|cargo|--version|verified_installer|https://sh.rustup.rs|rust|
 go|go|version|apt|Ubuntu golang-go package||
