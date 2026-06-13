@@ -25,8 +25,6 @@ const ALLOWED_CATEGORIES = new Set<ModuleCategory>([
   'network',
   'lang',
   'tools',
-  'db',
-  'cloud',
   'agents',
   'stack',
   'gtbi',

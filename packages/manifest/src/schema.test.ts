@@ -125,7 +125,7 @@ describe('ModuleSchema', () => {
   test('accepts module ID with underscores', () => {
     const result = ModuleSchema.safeParse({
       ...validMinimalModule,
-      id: 'stack.mcp_agent_mail',
+      id: 'network.ssh_keepalive',
     });
     expect(result.success).toBe(true);
   });
@@ -133,7 +133,7 @@ describe('ModuleSchema', () => {
   test('accepts multi-segment module ID', () => {
     const result = ModuleSchema.safeParse({
       ...validMinimalModule,
-      id: 'cloud.aws.s3',
+      id: 'gtbi.onboard.docs',
     });
     expect(result.success).toBe(true);
   });

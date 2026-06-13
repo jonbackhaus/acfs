@@ -17,8 +17,6 @@ const VALID_CATEGORIES = new Set<string>([
   'network',
   'lang',
   'tools',
-  'db',
-  'cloud',
   'agents',
   'stack',
   'gtbi',
