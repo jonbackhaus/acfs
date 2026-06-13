@@ -111,7 +111,7 @@ installed_check:
 
 ## Module Selection Resolver Contract
 
-This contract defines the shared selection behavior that `install.sh`, generated manifest metadata, the website command builder, and the future onboarding TUI must converge on. There must be one resolver semantics model: UI profiles and repair commands map into the selectors below, then the resolver produces the effective plan. No UI surface should maintain a separate dependency graph or copy of module defaults.
+This contract defines the shared selection behavior that `install.sh`, generated manifest metadata, and the future onboarding TUI must converge on. There must be one resolver semantics model: UI profiles and repair commands map into the selectors below, then the resolver produces the effective plan. No UI surface should maintain a separate dependency graph or copy of module defaults.
 
 ### Contract Owners
 
@@ -122,7 +122,6 @@ This contract defines the shared selection behavior that `install.sh`, generated
 | `scripts/generated/manifest_index.sh` | Runtime metadata bridge: `GTBI_MODULES_IN_ORDER`, `GTBI_MODULE_PHASE`, `GTBI_MODULE_DEPS`, `GTBI_MODULE_FUNC`, `GTBI_MODULE_CATEGORY`, `GTBI_MODULE_TAGS`, `GTBI_MODULE_DEFAULT`, and installed-check arrays |
 | `scripts/lib/install_helpers.sh` | Runtime resolver implementation: validates selectors, expands dependencies, applies skips, and populates `GTBI_EFFECTIVE_PLAN`, `GTBI_EFFECTIVE_RUN`, `GTBI_PLAN_REASON`, and `GTBI_PLAN_EXCLUDE_REASON` |
 | `install.sh` | Parses CLI flags, maps legacy skip flags, calls the resolver before mutation, prints `--print-plan`, and executes only modules in the effective plan |
-| `apps/web/lib/commandBuilder.ts` | Emits installer commands. Today this only passes mode, ref, and target user; future profile controls must serialize to the same public selectors |
 | `packages/onboard/` | Future TUI selector UI. It must display profiles and modules from generated/shared metadata and submit the same selector payload |
 
 ### Selector Inputs
@@ -558,59 +557,6 @@ Generated functions must not shadow orchestrator functions.
 which is a reserved orchestrator name
   → Rename the module to avoid the reserved function name
 ```
-
-## Web Content Generation
-
-The manifest generates TypeScript data files for the Next.js website. This keeps website content in sync with what gets installed.
-
-### Generated Files
-
-| File | Purpose |
-|------|---------|
-| `apps/web/lib/generated/manifest-tools.ts` | Tool cards for flywheel page and learn section |
-| `apps/web/lib/generated/manifest-tldr.ts` | TL;DR page tool summaries |
-| `apps/web/lib/generated/manifest-commands.ts` | CLI command reference |
-| `apps/web/lib/generated/manifest-lessons-index.ts` | Lesson navigation index |
-| `apps/web/lib/generated/manifest-web-index.ts` | Re-exports all generated modules |
-
-**IMPORTANT:** Never edit files in `apps/web/lib/generated/`. They are overwritten on every generation.
-
-### Web Generation Workflow
-
-1. **Add web metadata** to the module's `web` block in `gtbi.manifest.yaml`
-2. **Regenerate**: `cd packages/manifest && bun run generate`
-3. **Verify no drift**: `bun run generate:diff` (should exit 0)
-4. **Build website** to verify: `cd apps/web && bun run build`
-5. **Commit** both `gtbi.manifest.yaml` and `apps/web/lib/generated/*`
-
-### Migration Checklist (Adding New Tool to Website)
-
-```bash
-# 1. Edit manifest - add web block to module
-vim gtbi.manifest.yaml
-
-# 2. Regenerate web data
-cd packages/manifest && bun run generate
-
-# 3. Verify generated files are in sync
-bun run generate:diff
-
-# 4. Type-check and build website
-cd apps/web
-bun run type-check
-bun run build
-
-# 5. Commit everything together
-git add gtbi.manifest.yaml apps/web/lib/generated/
-git commit -m "feat(manifest): add web metadata for <tool-name>"
-```
-
-### CI Integration
-
-The GitHub Actions workflows (`playwright.yml`, `website.yml`) include a `verify-generated` job that runs `bun run generate:diff` before building. This ensures:
-- Generated files match the manifest
-- No manual edits to generated files sneak through
-- Website builds use current manifest data
 
 ## Maintainer Workflows
 

@@ -22,7 +22,6 @@ actual files, generated scripts, and real flags/CLI behavior rather than stubs.
 | `tests/vm/test_install_ubuntu.sh` | Present | Enhanced E2E | `tests/vm/test_install_ubuntu.sh` | Add explicit selection + bootstrap cases |
 | `tests/vm/test_gtbi_update.sh` | Present | Enhanced E2E | `tests/vm/test_gtbi_update.sh` | Standardize logging + artifacts |
 | `tests/vm/resume_checks.sh` | Present | Enhanced E2E | `tests/vm/resume_checks.sh` | Add selection/plan integration when ready |
-| Web wizard E2E | Present | Maintain + richer artifacts | `apps/web/e2e/wizard-flow.spec.ts` | Add runner script with logs + traces |
 
 ## Gaps (Immediate)
 - No unit coverage for bash libs (selection/contract/security/preflight).

@@ -18,25 +18,6 @@ install.sh (orchestrator)
 
 The manifest defines what gets installed. The generator produces bash functions. The installer orchestrates execution.
 
-### Web Content Generation
-
-The manifest also drives web content (tools, TL;DR, commands, lessons). Modules with a `web` block generate TypeScript data files consumed by the Next.js website.
-
-```
-gtbi.manifest.yaml (web metadata)
-       ↓
-packages/manifest/src/generate.ts
-       ↓
-apps/web/lib/generated/
-├── manifest-tools.ts      # Tool cards for flywheel/learn pages
-├── manifest-tldr.ts       # TL;DR summaries
-├── manifest-commands.ts   # CLI command reference
-├── manifest-lessons-index.ts  # Lesson navigation index
-└── manifest-web-index.ts  # Re-exports all above
-```
-
-**IMPORTANT:** Files in `apps/web/lib/generated/` are auto-generated. Never edit them directly.
-
 ## Adding a New Module
 
 ### 1. Add to gtbi.manifest.yaml
@@ -96,41 +77,7 @@ git add gtbi.manifest.yaml
 git commit  # Hook auto-regenerates
 ```
 
-### 4. Add Web Metadata (Optional)
-
-If the tool should appear on the website (flywheel page, TL;DR, learn section), add a `web` block:
-
-```yaml
-modules:
-  - id: stack.newtool
-    # ... install/verify fields ...
-    web:
-      display_name: "New Tool"
-      short_name: "NT"
-      tagline: "One-line description of what it does"
-      short_desc: "Slightly longer description (1-2 sentences)"
-      icon: "terminal"           # Lucide icon name (kebab-case)
-      color: "#3B82F6"           # Brand color (6-digit hex)
-      category_label: "Stack Tools"
-      href: "/learn/tools/newtool"   # Internal link or external URL
-      features:
-        - "Feature one"
-        - "Feature two"
-      tech_stack: ["Rust", "SQLite"]
-      use_cases:
-        - "When to use this tool"
-      language: "Rust"
-      cli_name: "nt"
-      cli_aliases: ["newtool"]
-      command_example: "nt status --json"
-      lesson_slug: "newtool"     # Links to /learn/tools/newtool
-      tldr_snippet: "Quick summary for TL;DR page"
-      visible: true              # Set false to hide from web
-```
-
-See `docs/reference/MANIFEST_SCHEMA_VNEXT.md` for full field reference.
-
-### 5. Validate
+### 4. Validate
 
 ```bash
 # Check for drift

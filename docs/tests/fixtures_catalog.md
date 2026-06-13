@@ -33,10 +33,6 @@ introduce synthetic mocks for core behavior; prefer these artifacts.
 - `tests/vm/test_gtbi_update.sh` — Update E2E (Docker).
 - `tests/vm/resume_checks.sh` — Resume logic checks.
 
-## Web E2E Fixtures
-- `apps/web/e2e/wizard-flow.spec.ts` — Playwright wizard flow tests.
-- `apps/web/playwright.config.ts` — Runner configuration.
-
 ## Notes
 - Generated artifacts should be regenerated via `bun run generate` before tests when manifest changes.
 - Avoid “fake” YAMLs; if smaller fixtures are needed, derive them from real manifest subsets and commit them as real files.
