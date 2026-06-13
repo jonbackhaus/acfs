@@ -239,7 +239,7 @@ _CHEATSHEET_RESOLVED_TARGET_HOME=""
 
 _CHEATSHEET_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source output formatting library (for TOON support)
+# Source output formatting library (JSON output)
 if [[ -f "$_CHEATSHEET_SCRIPT_DIR/output.sh" ]]; then
     # shellcheck source=output.sh
     source "$_CHEATSHEET_SCRIPT_DIR/output.sh"
@@ -247,7 +247,6 @@ fi
 
 # Global format options (set by argument parsing)
 _CHEATSHEET_OUTPUT_FORMAT=""
-_CHEATSHEET_SHOW_STATS=false
 
 if [[ -f "$_CHEATSHEET_SCRIPT_DIR/../../VERSION" ]]; then
   _CHEATSHEET_VERSION="$(cat "$_CHEATSHEET_SCRIPT_DIR/../../VERSION" 2>/dev/null || echo "$_CHEATSHEET_VERSION")"
@@ -267,15 +266,12 @@ Usage:
   gtbi cheatsheet --category <name>
   gtbi cheatsheet --search <pattern>
   gtbi cheatsheet --json
-  gtbi cheatsheet --format <json|toon>
-  gtbi cheatsheet --stats
+  gtbi cheatsheet --format <json>
   gtbi cheatsheet --zshrc <path>
 
 Options:
   --json           Output as JSON
-  --format <fmt>   Output format: json or toon (env: GTBI_OUTPUT_FORMAT, TOON_DEFAULT_FORMAT)
-  --toon, -t       Shorthand for --format toon
-  --stats          Show token savings statistics (JSON vs TOON bytes)
+  --format <fmt>   Output format: json (env: GTBI_OUTPUT_FORMAT)
 
 Examples:
   gtbi cheatsheet
@@ -283,7 +279,6 @@ Examples:
   gtbi cheatsheet "push"
   gtbi cheatsheet --category Agents
   gtbi cheatsheet --search docker
-  gtbi cheatsheet --format toon --stats
 EOF
 }
 
@@ -1164,7 +1159,7 @@ cheatsheet_render_json() {
   if type -t gtbi_format_output &>/dev/null; then
     local resolved_format
     resolved_format=$(gtbi_resolve_format "$_CHEATSHEET_OUTPUT_FORMAT")
-    gtbi_format_output "$json_output" "$resolved_format" "$_CHEATSHEET_SHOW_STATS"
+    gtbi_format_output "$json_output" "$resolved_format"
   else
     # Fallback: direct JSON output
     printf '%s\n' "$json_output"
@@ -1189,7 +1184,7 @@ main() {
         ;;
       --format|-f)
         if [[ -z "${2:-}" || "$2" == -* ]]; then
-          echo "Error: --format requires a value (json or toon)" >&2
+          echo "Error: --format requires a value (json)" >&2
           return 1
         fi
         _CHEATSHEET_OUTPUT_FORMAT="$2"
@@ -1199,19 +1194,10 @@ main() {
       --format=*)
         _CHEATSHEET_OUTPUT_FORMAT="${1#*=}"
         if [[ -z "$_CHEATSHEET_OUTPUT_FORMAT" ]]; then
-          echo "Error: --format requires a value (json or toon)" >&2
+          echo "Error: --format requires a value (json)" >&2
           return 1
         fi
         json_mode=true
-        shift
-        ;;
-      --toon|-t)
-        _CHEATSHEET_OUTPUT_FORMAT="toon"
-        json_mode=true
-        shift
-        ;;
-      --stats)
-        _CHEATSHEET_SHOW_STATS=true
         shift
         ;;
       --category)

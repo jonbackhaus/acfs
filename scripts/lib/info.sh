@@ -265,7 +265,7 @@ _INFO_EXPLICIT_TARGET_USER_RAW="${TARGET_USER:-}"
 _INFO_EXPLICIT_TARGET_HOME="$(info_existing_abs_home "${TARGET_HOME:-}" 2>/dev/null || true)"
 _INFO_RESOLVED_GTBI_HOME=""
 
-# Source output formatting library (for TOON support)
+# Source output formatting library (JSON output)
 _INFO_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -f "${_INFO_SCRIPT_DIR}/output.sh" ]]; then
     # shellcheck source=output.sh
@@ -274,7 +274,6 @@ fi
 
 # Global format options (set by argument parsing)
 _INFO_OUTPUT_FORMAT=""
-_INFO_SHOW_STATS=false
 
 # ============================================================
 # Color Constants (for terminal output)
@@ -1832,7 +1831,7 @@ EOF
     if type -t gtbi_format_output &>/dev/null; then
         local resolved_format
         resolved_format=$(gtbi_resolve_format "$_INFO_OUTPUT_FORMAT")
-        gtbi_format_output "$json_output" "$resolved_format" "$_INFO_SHOW_STATS"
+        gtbi_format_output "$json_output" "$resolved_format"
     else
         # Fallback: direct JSON output
         printf '%s\n' "$json_output"
@@ -2011,7 +2010,6 @@ EOF
 info_main() {
     local output_mode="terminal"
     _INFO_OUTPUT_FORMAT=""
-    _INFO_SHOW_STATS=false
 
     # Parse arguments
     while [[ $# -gt 0 ]]; do
@@ -2022,12 +2020,12 @@ info_main() {
             --format|-f)
                 shift
                 if [[ -z "${1:-}" || "$1" == -* ]]; then
-                    echo "Error: --format requires a value (json or toon)" >&2
+                    echo "Error: --format requires a value (json)" >&2
                     return 1
                 fi
                 _INFO_OUTPUT_FORMAT="$1"
-                if [[ "$_INFO_OUTPUT_FORMAT" != "json" && "$_INFO_OUTPUT_FORMAT" != "toon" ]]; then
-                    echo "Error: invalid format '$_INFO_OUTPUT_FORMAT' (expected json or toon)" >&2
+                if [[ "$_INFO_OUTPUT_FORMAT" != "json" ]]; then
+                    echo "Error: invalid format '$_INFO_OUTPUT_FORMAT' (expected json)" >&2
                     return 1
                 fi
                 output_mode="json"  # --format implies structured output
@@ -2035,21 +2033,14 @@ info_main() {
             --format=*)
                 _INFO_OUTPUT_FORMAT="${1#*=}"
                 if [[ -z "$_INFO_OUTPUT_FORMAT" ]]; then
-                    echo "Error: --format requires a value (json or toon)" >&2
+                    echo "Error: --format requires a value (json)" >&2
                     return 1
                 fi
-                if [[ "$_INFO_OUTPUT_FORMAT" != "json" && "$_INFO_OUTPUT_FORMAT" != "toon" ]]; then
-                    echo "Error: invalid format '$_INFO_OUTPUT_FORMAT' (expected json or toon)" >&2
+                if [[ "$_INFO_OUTPUT_FORMAT" != "json" ]]; then
+                    echo "Error: invalid format '$_INFO_OUTPUT_FORMAT' (expected json)" >&2
                     return 1
                 fi
                 output_mode="json"
-                ;;
-            --toon|-t)
-                _INFO_OUTPUT_FORMAT="toon"
-                output_mode="json"
-                ;;
-            --stats)
-                _INFO_SHOW_STATS=true
                 ;;
             --html|-H)
                 output_mode="html"
@@ -2064,9 +2055,7 @@ info_main() {
                 echo ""
                 echo "Options:"
                 echo "  --json, -j         Output as JSON"
-                echo "  --format <fmt>     Output format: json or toon (env: GTBI_OUTPUT_FORMAT, TOON_DEFAULT_FORMAT)"
-                echo "  --toon, -t         Shorthand for --format toon"
-                echo "  --stats            Show token savings statistics (JSON vs TOON bytes)"
+                echo "  --format <fmt>     Output format: json (env: GTBI_OUTPUT_FORMAT)"
                 echo "  --html, -H         Output as self-contained HTML"
                 echo "  --minimal, -m      Show only essentials"
                 echo "  --help, -h         Show this help"

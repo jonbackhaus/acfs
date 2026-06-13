@@ -9,7 +9,6 @@
 #   ./scripts/preflight.sh               # Full check with colored output
 #   ./scripts/preflight.sh --quiet       # Exit code only
 #   ./scripts/preflight.sh --json        # JSON output for automation
-#   ./scripts/preflight.sh --format toon # TOON output for automation
 #
 # Exit Codes:
 #   0: All critical checks pass (warnings are OK)
@@ -45,7 +44,7 @@ WARNINGS=0
 
 # Output mode
 QUIET=false
-OUTPUT_FORMAT="text" # text|json|toon
+OUTPUT_FORMAT="text" # text|json
 MACHINE_OUTPUT=false
 NETWORK_MODE="${GTBI_PREFLIGHT_NETWORK:-check}" # check|skip
 CHECKSUM_CANDIDATE_FILE="${GTBI_PREFLIGHT_CHECKSUM_CANDIDATE:-}"
@@ -487,16 +486,16 @@ while [[ $# -gt 0 ]]; do
             ;;
         --format)
             if [[ -z "${2:-}" ]]; then
-                echo "Error: --format requires an argument (json|toon)" >&2
+                echo "Error: --format requires an argument (json)" >&2
                 exit 1
             fi
             case "$2" in
-                json|toon)
+                json)
                     OUTPUT_FORMAT="$2"
                     MACHINE_OUTPUT=true
                     ;;
                 *)
-                    echo "Error: invalid --format '$2' (expected json|toon)" >&2
+                    echo "Error: invalid --format '$2' (expected json)" >&2
                     exit 1
                     ;;
             esac
@@ -531,12 +530,12 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --help|-h)
-            echo "Usage: $0 [--quiet] [--json|--format json|toon] [--network check|skip]"
+            echo "Usage: $0 [--quiet] [--json|--format json] [--network check|skip]"
             echo ""
             echo "Options:"
             echo "  --quiet, -q           Suppress output, exit code only"
             echo "  --json                Output results as JSON"
-            echo "  --format              Output results as json or toon"
+            echo "  --format              Output results as json"
             echo "  --network             Network checks: check (default) or skip"
             echo "  --offline             Alias for --network skip"
             echo "  --checksum-candidate  Compare a generated checksums.yaml candidate"
@@ -1286,16 +1285,7 @@ main() {
 
     # Summary
     if [[ "$MACHINE_OUTPUT" == "true" ]]; then
-        if [[ "$OUTPUT_FORMAT" == "toon" ]]; then
-            if ! command -v tru >/dev/null 2>&1; then
-                echo "Warning: --format toon requested but 'tru' not found; using JSON" >&2
-                emit_json_summary
-            else
-                emit_json_summary | tru --encode
-            fi
-        else
-            emit_json_summary
-        fi
+        emit_json_summary
     elif [[ "$QUIET" != "true" ]]; then
         echo ""
         echo "====================="
