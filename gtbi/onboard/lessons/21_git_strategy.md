@@ -39,48 +39,18 @@ single branch, the second agent sees the signature change immediately and adapts
 
 ## How Conflicts Are Prevented
 
-Instead of branch isolation, GTBI uses three complementary mechanisms:
+Instead of branch isolation, GTBI relies on discipline that keeps every agent
+working against the latest shared state:
 
-### 1. File Reservations (Agent Mail)
+**Coordinate before editing.** Agree on who owns which files before touching them,
+so two agents don't edit the same file at once.
 
-Before editing files, agents reserve them:
+**Avoid destructive git commands.** Commands like `git reset --hard`,
+`git checkout -- .`, and `git clean -fd` can wipe uncommitted work from other
+agents. Don't run them on a shared repo.
 
-```bash
-# Agent reserves files it plans to edit
-file_reservation_paths(
-    project_key="/data/projects/my-repo",
-    agent_name="BlueLake",
-    paths=["src/auth/*.rs"],
-    ttl_seconds=3600,
-    exclusive=true,
-    reason="bd-42: refactor auth"
-)
-```
-
-Other agents see the reservation and work on different files. Conflicts are
-caught **before** edits happen, not after.
-
-### 2. Pre-Commit Guard
-
-The Agent Mail pre-commit hook checks reservations at commit time:
-
-```bash
-# Install the guard
-mcp-agent-mail install-precommit-guard
-```
-
-If you try to commit a file reserved by another agent, the commit is blocked
-with an explanation of who holds the reservation.
-
-### 3. DCG (Destructive Command Guard)
-
-DCG blocks dangerous git commands that could destroy other agents' work:
-
-- `git reset --hard` -- would wipe uncommitted changes from all agents
-- `git checkout -- .` -- same problem
-- `git clean -fd` -- deletes untracked files other agents may need
-
-See `onboard 10` for DCG details.
+**Pull, then commit small and often.** Frequent small commits against the latest
+`main` keep the window for conflicts tiny.
 
 ---
 
@@ -88,19 +58,17 @@ See `onboard 10` for DCG details.
 
 ```
 1. Pull latest          git pull --rebase
-2. Reserve files        file_reservation_paths(...)
-3. Edit and test        rch exec -- cargo test / bun test / go test
-4. Commit immediately   git add <files> && git commit
-5. Push                 git push
-6. Release reservation  release_file_reservations(...)
+2. Edit and test        cargo test / bun test / go test
+3. Commit immediately   git add <files> && git commit
+4. Push                 git push
 ```
 
 **Key principles:**
 
 - **Commit early, commit often.** Small commits reduce the window for conflicts.
 - **Push after every commit.** Unpushed commits are invisible to other agents.
-- **Reserve before editing.** Don't touch files without a reservation.
-- **Release when done.** Don't hold reservations longer than needed.
+- **Coordinate before editing.** Don't touch files another agent is already editing.
+- **Pull before you start.** Always work against the latest `main`.
 
 ---
 
@@ -110,10 +78,9 @@ The issue reporter correctly notes that avoiding textual merge conflicts doesn't
 guarantee semantic correctness. GTBI addresses this with:
 
 - **Frequent small commits** keep the delta small, reducing logical conflict surface
-- **UBS scanning** (`ubs <changed-files>`) catches many semantic issues before commit
-- **Compiler checks** (`rch exec -- cargo check`, `go vet`, `tsc`) run before every commit
+- **Compiler checks** (`cargo check`, `go vet`, `tsc`) run before every commit
 - **Test suites** catch regressions immediately
-- **Agent Mail threads** let agents coordinate on shared interfaces
+- **Clear ownership** of files and interfaces keeps agents from stepping on each other
 
 For projects where this isn't sufficient, consider:
 - Splitting the repo into smaller, focused crates/packages
@@ -126,11 +93,10 @@ For projects where this isn't sufficient, consider:
 
 | Mechanism | What It Does |
 |-----------|-------------|
-| File reservations | Prevents two agents editing same files |
-| Pre-commit guard | Blocks commits to reserved files |
-| DCG | Blocks destructive git commands |
+| Coordinate file ownership | Prevents two agents editing same files |
+| Avoid destructive git | Protects other agents' uncommitted work |
 | `git pull --rebase` | Stays current with other agents' work |
-| `main:master` push | Keeps legacy URLs working |
+| Commit small and often | Shrinks the conflict window |
 
 ---
 
@@ -143,16 +109,6 @@ Each project's `AGENTS.md` file configures agent behavior, including:
 - How to handle unexpected changes from other agents
 
 When you create a project with `gtbi newproj`, this is set up automatically.
-
----
-
-## Next
-
-Learn the hands-on coordination loop for a real multi-agent task:
-
-```bash
-onboard 22
-```
 
 ---
 

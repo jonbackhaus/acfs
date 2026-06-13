@@ -6,8 +6,7 @@
 
 ## Why Use `gtbi newproj`?
 
-When you create a project with `ntm spawn`, you get a tmux session with agents.
-But agents work better when they have:
+A new project works best when agents have everything they need from the start:
 
 - **AGENTS.md** - Project-specific guidance for AI agents
 - **Beads (br)** - Local issue tracking for planning and progress
@@ -89,17 +88,13 @@ Creates `~/code/myproject`.
    gtbi newproj myapp -i
    ```
 
-2. **Spawn agents:**
+2. **Open it and start an agent:**
    ```bash
-   ntm spawn myapp --cc=2
+   cd /data/projects/myapp
+   claude   # or codex / gemini / opencode
    ```
 
-3. **Attach and work:**
-   ```bash
-   ntm attach myapp
-   ```
-
-The key insight: `gtbi newproj` prepares the project, `ntm spawn` starts agents.
+The key insight: `gtbi newproj` prepares the project so your agent has everything it needs.
 
 ---
 
@@ -163,8 +158,8 @@ mv /data/projects/test-project /data/projects/test-project.archived.$(date +%Y%m
 
 ## Next
 
-Ready to spawn agents in your new project:
+Learn how git works when multiple agents share a repo:
 
 ```bash
-onboard 5
+onboard 21
 ```
