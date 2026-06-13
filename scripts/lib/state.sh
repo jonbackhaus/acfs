@@ -103,9 +103,8 @@ fi
 #   Phase 4: CLI tools             → cli_tools
 #   Phase 5: Language runtimes     → languages
 #   Phase 6: Coding agents         → agents
-#   Phase 7: Cloud & database      → cloud_db
-#   Phase 8: Dicklesworthstone     → stack
-#   Phase 9: Final wiring          → finalize
+#   Phase 7: Gastown stack         → stack
+#   Phase 8: Final wiring          → finalize
 
 # Canonical ordered list of phase IDs (defines execution order)
 readonly GTBI_PHASE_IDS=(
@@ -115,7 +114,6 @@ readonly GTBI_PHASE_IDS=(
     "cli_tools"
     "languages"
     "agents"
-    "cloud_db"
     "stack"
     "finalize"
 )
@@ -129,7 +127,6 @@ declare -gA GTBI_PHASE_NAMES=(
     [cli_tools]="CLI Tools"
     [languages]="Language Runtimes"
     [agents]="Coding Agents"
-    [cloud_db]="Cloud & Database Tools"
     [stack]="Gastown Stack"
     [finalize]="Final Wiring"
 )
@@ -2098,7 +2095,6 @@ state_manifest_phase_to_id() {
         5) printf '%s\n' "cli_tools" ;;
         6) printf '%s\n' "languages" ;;
         7) printf '%s\n' "agents" ;;
-        8) printf '%s\n' "cloud_db" ;;
         9) printf '%s\n' "stack" ;;
         10) printf '%s\n' "finalize" ;;
         *) return 1 ;;
@@ -2648,9 +2644,8 @@ state_migrate_v1_to_v2() {
                     elif . == 4 then "cli_tools"
                     elif . == 5 then "languages"
                     elif . == 6 then "agents"
-                    elif . == 7 then "cloud_db"
-                    elif . == 8 then "stack"
-                    elif . == 9 then "finalize"
+                    elif . == 7 then "stack"
+                    elif . == 8 then "finalize"
                     else .
                     end
                 )

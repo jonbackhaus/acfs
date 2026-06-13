@@ -5785,14 +5785,14 @@ main() {
 
             # Show progress header before running phase
             if type -t show_progress_header &>/dev/null; then
-                show_progress_header "$phase_num" 9 "$phase_name" "$installation_start_time" "$phase_id"
+                show_progress_header "$phase_num" 8 "$phase_name" "$installation_start_time" "$phase_id"
             fi
 
             if type -t run_phase &>/dev/null; then
                 if ! run_phase "$phase_id" "$phase_display" "$phase_func"; then
                     # Use structured error reporting
                     if type -t report_failure &>/dev/null; then
-                        report_failure "$phase_num" 9
+                        report_failure "$phase_num" 8
                     else
                         log_error "Phase $phase_display failed"
                     fi

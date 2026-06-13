@@ -315,8 +315,7 @@ rescue_next_phase_after() {
         shell_setup) printf 'cli_tools\n' ;;
         cli_tools) printf 'languages\n' ;;
         languages) printf 'agents\n' ;;
-        agents) printf 'cloud_db\n' ;;
-        cloud_db) printf 'stack\n' ;;
+        agents) printf 'stack\n' ;;
         stack) printf 'finalize\n' ;;
         finalize) printf '\n' ;;
         *) printf '\n' ;;
