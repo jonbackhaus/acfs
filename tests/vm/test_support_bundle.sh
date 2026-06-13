@@ -97,12 +97,6 @@ JSON
 echo '{"status": "mock", "checks": []}'
 DOCTOR
     chmod +x "$MOCK_GTBI/scripts/lib/doctor.sh"
-
-    cat > "$MOCK_GTBI/scripts/lib/swarm_status.sh" <<'SWARM'
-#!/usr/bin/env bash
-echo '{"schema_version": 1, "status": "pass", "probes": {}}'
-SWARM
-    chmod +x "$MOCK_GTBI/scripts/lib/swarm_status.sh"
 }
 
 cleanup_mock_env() {
@@ -192,24 +186,6 @@ test_bundle_contains_expected_files() {
         harness_fail "Bundle contains performance budget JSON"
     fi
 
-    if echo "$contents" | grep -q 'swarm_status.json'; then
-        harness_pass "Bundle contains swarm status JSON"
-    else
-        harness_fail "Bundle contains swarm status JSON"
-    fi
-
-    if echo "$contents" | grep -q 'swarm_timeline.json'; then
-        harness_pass "Bundle contains swarm timeline JSON"
-    else
-        harness_fail "Bundle contains swarm timeline JSON"
-    fi
-
-    if echo "$contents" | grep -q 'swarm_inventory.json'; then
-        harness_pass "Bundle contains swarm inventory JSON"
-    else
-        harness_fail "Bundle contains swarm inventory JSON"
-    fi
-
     if echo "$contents" | grep -q 'versions.json'; then
         harness_pass "Bundle contains versions.json"
     else
@@ -280,20 +256,8 @@ test_manifest_json_valid() {
     schema_version=$(jq -r '.schema_version' "$manifest" 2>/dev/null)
     harness_assert_eq "1" "$schema_version" "Manifest schema_version is 1"
 
-    if jq -e '.diagnostics.swarm_timeline.included == true and (.diagnostics.swarm_timeline.probes | length) >= 5' "$manifest" >/dev/null 2>&1; then
-        harness_pass "Manifest includes swarm timeline probe manifest"
-    else
-        harness_fail "Manifest includes swarm timeline probe manifest"
-    fi
-
-    if jq -e '.diagnostics.swarm_inventory.included == false and .diagnostics.swarm_inventory.status == "skipped" and .diagnostics.swarm_inventory.paths_redacted == true and .diagnostics.swarm_inventory.raw_hosts_collected == false' "$manifest" >/dev/null 2>&1; then
-        harness_pass "Manifest includes skipped swarm inventory diagnostics"
-    else
-        harness_fail "Manifest includes skipped swarm inventory diagnostics"
-    fi
-
     if jq -e '
-        (.diagnostics | keys | length) >= 8 and
+        (.diagnostics | keys | length) >= 7 and
         ([.diagnostics[] | select(
             .proof_schema_version == 1 and
             (.included | type) == "boolean" and
@@ -305,7 +269,6 @@ test_manifest_json_valid() {
             .redaction.raw_values_collected == false
         )] | length) == (.diagnostics | keys | length) and
         (.diagnostics.doctor.redaction.categories | index("secret_values")) and
-        (.diagnostics.swarm_inventory.redaction.categories | index("hostnames")) and
         (.diagnostics.environment.redaction.categories | index("home_paths"))
     ' "$manifest" >/dev/null 2>&1; then
         harness_pass "Manifest includes redaction proof metadata for diagnostic sources"

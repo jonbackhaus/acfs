@@ -60,7 +60,6 @@ Never run `rm -rf`, `git reset --hard`, or `git clean -fd`.
 Use Bun for JavaScript workflows. Never use npm, yarn, or pnpm.
 Use `bv --robot-triage` or `br ready --json`; bare `bv` opens the TUI and should be avoided.
 Use `rch exec -- cargo test` for Rust test runs.
-Before editing, reserve files with Agent Mail using `file_reservation_paths`.
 '
 
     bash "$POLICY_LINT_SH" --json --file "$fixture" > "$output" || return 1
@@ -159,24 +158,6 @@ Run `cargo test --all-targets` before committing.
     pass "detects_local_cpu_heavy_cargo_example"
 }
 
-test_detects_missing_agent_mail_reservation_guidance() {
-    local fixture="$ARTIFACT_DIR/missing-mail/AGENTS.md"
-    local output="$ARTIFACT_DIR/missing-mail.json"
-
-    write_fixture "$fixture" '# AGENTS.md
-
-Agents should edit code carefully.
-Use `main`, Bun, and `bv --robot-triage`.
-'
-
-    if bash "$POLICY_LINT_SH" --json --file "$fixture" > "$output"; then
-        return 1
-    fi
-    assert_policy_present "$output" "coordination.agent_mail_reservation" || return 1
-
-    pass "detects_missing_agent_mail_reservation_guidance"
-}
-
 test_policy_matrix_reports_expected_policy_ids() {
     local fixture="$ARTIFACT_DIR/matrix/AGENTS.md"
     local output="$ARTIFACT_DIR/matrix.json"
@@ -207,8 +188,7 @@ cargo test --all-targets
         "filesystem.no_destructive_cleanup" \
         "toolchain.bun_only" \
         "beads.robot_bv_only" \
-        "builds.rch_for_cpu_heavy" \
-        "coordination.agent_mail_reservation"
+        "builds.rch_for_cpu_heavy"
     do
         assert_policy_present "$output" "$policy_id" || return 1
         assert_policy_in_human_output "$human_output" "$policy_id" || return 1
@@ -217,7 +197,7 @@ cargo test --all-targets
     jq -e '
       .status == "fail" and
       .summary.files_scanned == 1 and
-      ([.violations[].policy_id] | unique | length) == 6
+      ([.violations[].policy_id] | unique | length) == 5
     ' "$output" >/dev/null || return 1
 
     pass "policy_matrix_reports_expected_policy_ids"
@@ -240,7 +220,6 @@ main() {
     run_test test_detects_js_package_manager_drift
     run_test test_detects_bare_bv_example
     run_test test_detects_local_cpu_heavy_cargo_example
-    run_test test_detects_missing_agent_mail_reservation_guidance
     run_test test_policy_matrix_reports_expected_policy_ids
 
     echo ""

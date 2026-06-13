@@ -38,18 +38,12 @@ write_status_file() {
 run_landing_json() {
     local status_file="$1"
     local in_progress_json="$2"
-    local reservations_json="$3"
-    local mail_sent="$4"
-    local gates_passed="$5"
+    local gates_passed="$3"
 
     env \
         GTBI_LAND_GIT_STATUS_FILE="$status_file" \
         GTBI_LAND_IN_PROGRESS_JSON="$in_progress_json" \
-        GTBI_LAND_RESERVATIONS_JSON="$reservations_json" \
-        GTBI_LAND_MAIL_SENT="$mail_sent" \
         GTBI_LAND_GATES_PASSED="$gates_passed" \
-        GTBI_LAND_AGENT_NAME="SilentPeak" \
-        GTBI_LAND_PROJECT_KEY="/data/projects/gastown_batteries_included" \
         bash "$LANDING_PLANE_SH" --json
 }
 
@@ -65,7 +59,7 @@ assert_no_forbidden_copy() {
 test_clean_session_passes() {
     local status_file output
     status_file="$(write_status_file clean "")"
-    output="$(run_landing_json "$status_file" '{"issues":[]}' '{"active":[]}' true true)"
+    output="$(run_landing_json "$status_file" '{"issues":[]}' true)"
     printf '%s\n' "$output" > "$ARTIFACT_DIR/clean.json"
 
     jq -e '
@@ -74,8 +68,8 @@ test_clean_session_passes() {
       .quality_gates.status == "pass" and
       .beads.status == "pass" and
       .beads.sync_status == "clean" and
-      .agent_mail.status == "pass" and
-      .reservations.status == "pass" and
+      (has("agent_mail") | not) and
+      (has("reservations") | not) and
       (.next_commands | length) == 0
     ' <<<"$output" >/dev/null || return 1
     assert_no_forbidden_copy "$output" || return 1
@@ -86,7 +80,7 @@ test_clean_session_passes() {
 test_dirty_session_prints_exact_gates_and_staging() {
     local status_file output
     status_file="$(write_status_file dirty $' M scripts/lib/foo.sh\n?? tests/unit/test_foo.sh\n M .beads/beads.db')"
-    output="$(run_landing_json "$status_file" '{"issues":[{"id":"bd-r86ef"}]}' '{"active":[]}' false false)"
+    output="$(run_landing_json "$status_file" '{"issues":[{"id":"bd-r86ef"}]}' false)"
     printf '%s\n' "$output" > "$ARTIFACT_DIR/dirty.json"
 
     jq -e '
@@ -101,48 +95,12 @@ test_dirty_session_prints_exact_gates_and_staging() {
       any(.next_commands[]; startswith("ubs ")) and
       any(.next_commands[]; startswith("git add -- ")) and
       any(.next_commands[]; . == "br sync --flush-only") and
-      any(.next_commands[]; contains("send_message("))
+      any(.next_commands[]; . == "git commit -m \"close out session work\"") and
+      any(.next_commands[]; . == "git push origin main")
     ' <<<"$output" >/dev/null || return 1
     assert_no_forbidden_copy "$output" || return 1
 
     pass "dirty_session_prints_exact_gates_and_staging"
-}
-
-test_missing_gate_scenario_warns() {
-    local status_file output
-    status_file="$(write_status_file missing_gate ' M apps/web/app/page.tsx')"
-    output="$(run_landing_json "$status_file" '{"issues":[]}' '{"active":[]}' true false)"
-    printf '%s\n' "$output" > "$ARTIFACT_DIR/missing-gate.json"
-
-    jq -e '
-      .status == "warn" and
-      .quality_gates.status == "warn" and
-      (.quality_gates.web_files | index("apps/web/app/page.tsx")) != null and
-      any(.next_commands[]; . == "cd apps/web && bun run type-check && bun run lint") and
-      any(.next_commands[]; . == "cd apps/web && bun run build") and
-      any(.next_commands[]; startswith("ubs "))
-    ' <<<"$output" >/dev/null || return 1
-    assert_no_forbidden_copy "$output" || return 1
-
-    pass "missing_gate_scenario_warns"
-}
-
-test_active_reservations_are_called_out() {
-    local status_file output
-    status_file="$(write_status_file active_reservations "")"
-    output="$(run_landing_json "$status_file" '{"issues":[]}' '{"active":[{"path_pattern":"scripts/lib/landing_plane.sh"},{"path_pattern":"tests/unit/test_landing_plane.sh"}]}' true true)"
-    printf '%s\n' "$output" > "$ARTIFACT_DIR/active-reservations.json"
-
-    jq -e '
-      .status == "warn" and
-      .reservations.status == "warn" and
-      .reservations.active_count == 2 and
-      (.reservations.paths | index("scripts/lib/landing_plane.sh")) != null and
-      any(.next_commands[]; contains("release_file_reservations("))
-    ' <<<"$output" >/dev/null || return 1
-    assert_no_forbidden_copy "$output" || return 1
-
-    pass "active_reservations_are_called_out"
 }
 
 run_test() {
@@ -157,8 +115,6 @@ run_test() {
 main() {
     run_test test_clean_session_passes
     run_test test_dirty_session_prints_exact_gates_and_staging
-    run_test test_missing_gate_scenario_warns
-    run_test test_active_reservations_are_called_out
 
     echo ""
     echo "Tests passed: $TESTS_PASSED"

@@ -2,7 +2,7 @@
 # ============================================================
 # GTBI Capacity Report
 #
-# Fast, offline host sizing for multi-agent GTBI workflows.
+# Fast, offline host sizing for concurrent GTBI workloads.
 # ============================================================
 
 set -uo pipefail
@@ -10,7 +10,6 @@ set -uo pipefail
 CAPACITY_JSON=false
 CAPACITY_WORKLOAD="standard"
 CAPACITY_PROFILE=""
-CAPACITY_RECOMMEND_NTM=false
 CAPACITY_RESOURCE_PROFILE=false
 CAPACITY_RESOURCE_PROFILE_APPLY=false
 CAPACITY_RESOURCE_PROFILE_DISABLE=false
@@ -24,7 +23,6 @@ Options:
   --json                  Emit machine-readable JSON
   --workload <name>       light, standard, or heavy (default: standard)
   --profile <agents>      Check a target agent count, e.g. 25 or 25-agents
-  --recommend-ntm         Include an NTM launch recommendation
   --resource-profile      Report opt-in systemd resource profile wrappers
   --apply-resource-profile
                           Write opt-in GTBI wrapper files under ~/.gtbi
@@ -37,7 +35,6 @@ Environment overrides for tests:
   GTBI_CAPACITY_MEM_TOTAL_KB
   GTBI_CAPACITY_DISK_AVAILABLE_KB
   GTBI_CAPACITY_RCH_AVAILABLE=true|false
-  GTBI_CAPACITY_NTM_AVAILABLE=true|false
   GTBI_CAPACITY_SYSTEMD_RUN_AVAILABLE=true|false
   GTBI_CAPACITY_SYSTEMD_USER_AVAILABLE=true|false
   GTBI_CAPACITY_BIN_DIR
@@ -61,10 +58,6 @@ capacity_parse_args() {
                 [[ $# -ge 2 ]] || { echo "Error: --profile requires a value" >&2; return 2; }
                 CAPACITY_PROFILE="$2"
                 shift 2
-                ;;
-            --recommend-ntm)
-                CAPACITY_RECOMMEND_NTM=true
-                shift
                 ;;
             --resource-profile)
                 CAPACITY_RESOURCE_PROFILE=true
@@ -603,12 +596,11 @@ capacity_emit_resource_profile_human() {
 }
 
 capacity_collect_model() {
-    local cpu_count mem_total_kb disk_available_kb rch_available ntm_available
+    local cpu_count mem_total_kb disk_available_kb rch_available
     cpu_count="$(capacity_read_cpu_count)"
     mem_total_kb="$(capacity_read_mem_total_kb)"
     disk_available_kb="$(capacity_read_disk_available_kb)"
     rch_available="$(capacity_tool_available rch GTBI_CAPACITY_RCH_AVAILABLE)"
-    ntm_available="$(capacity_tool_available ntm GTBI_CAPACITY_NTM_AVAILABLE)"
 
     local mem_total_mib disk_available_mib reserve_mib usable_mem_mib
     mem_total_mib=$((mem_total_kb / 1024))
@@ -687,7 +679,6 @@ capacity_collect_model() {
     CAPACITY_SAFE_AGENTS="$safe_agents"
     CAPACITY_RECOMMENDED_AGENTS="$recommended_agents"
     CAPACITY_RCH_AVAILABLE="$rch_available"
-    CAPACITY_NTM_AVAILABLE="$ntm_available"
     CAPACITY_REQUESTED_AGENTS="$requested_agents"
     CAPACITY_PROFILE_STATUS="$profile_status"
     CAPACITY_PROFILE_REASON="$profile_reason"
@@ -721,8 +712,6 @@ capacity_emit_json() {
         --argjson safe_agents "$CAPACITY_SAFE_AGENTS" \
         --argjson recommended_agents "$CAPACITY_RECOMMENDED_AGENTS" \
         --argjson rch_available "$CAPACITY_RCH_AVAILABLE" \
-        --argjson ntm_available "$CAPACITY_NTM_AVAILABLE" \
-        --argjson recommend_ntm "$CAPACITY_RECOMMEND_NTM" \
         --arg status "$CAPACITY_STATUS" '
         {
             schema_version: 1,
@@ -734,8 +723,7 @@ capacity_emit_json() {
                 disk_available_mib: $disk_available_mib
             },
             tools: {
-                rch: {available: $rch_available},
-                ntm: {available: $ntm_available}
+                rch: {available: $rch_available}
             },
             assumptions: {
                 workload: $workload,
@@ -761,39 +749,11 @@ capacity_emit_json() {
             },
             recommendations: (
                 [
-                    if $rch_available then empty else "Install or repair RCH before launching CPU-heavy Rust build/test swarms." end,
-                    if $safe_agents < 1 then "Increase RAM, CPU, or disk headroom before launching agents." else empty end,
+                    if $rch_available then empty else "Install or repair RCH before running CPU-heavy Rust build/test workloads." end,
+                    if $safe_agents < 1 then "Increase RAM, CPU, or disk headroom before running concurrent agents." else empty end,
                     if $recommended_agents > 0 then "Start at the recommended tier, then increase only after status/doctor checks stay clean." else empty end
                 ]
-            ),
-            ntm: {
-                recommended: $recommend_ntm,
-                agent_count: (if $recommend_ntm then $recommended_agents else null end),
-                launch_plan: (if $recommend_ntm then "Create one coordinator session plus focused worker sessions sized to the recommended agent count." else null end),
-                profiles: (
-                    if $recommend_ntm then
-                        def profile_status($count):
-                            if $count <= $recommended_agents then "pass"
-                            elif $count <= $safe_agents then "warn"
-                            else "fail"
-                            end;
-                        [
-                            {agents: 5, cc: 2, cod: 2, gmi: 1, label: "swarm-5"},
-                            {agents: 10, cc: 4, cod: 4, gmi: 2, label: "swarm-10"},
-                            {agents: 25, cc: 10, cod: 10, gmi: 5, label: "swarm-25"},
-                            {agents: 50, cc: 20, cod: 20, gmi: 10, label: "swarm-50"}
-                        ] | map(. + {
-                            status: profile_status(.agents),
-                            command: ("ntm spawn myproject --label " + .label + " --cc=" + (.cc | tostring) + " --cod=" + (.cod | tostring) + " --gmi=" + (.gmi | tostring) + " --assign --stagger-mode=smart"),
-                            rch_policy: "Use rch exec -- for cargo build/test/check/clippy/bench/run/doc commands inside every agent pane.",
-                            agent_mail: "Register agents, send a start message on the bead thread, and reserve files before edits.",
-                            beads: "Use br ready --json and bv --robot-triage for assignment truth; never launch bare bv."
-                        })
-                    else
-                        []
-                    end
-                )
-            }
+            )
         }'
 }
 
@@ -820,7 +780,6 @@ capacity_emit_human() {
     echo ""
     echo "Tooling"
     echo "  RCH available:       $CAPACITY_RCH_AVAILABLE"
-    echo "  NTM available:       $CAPACITY_NTM_AVAILABLE"
 
     if [[ -n "$CAPACITY_PROFILE" ]]; then
         echo ""
@@ -828,24 +787,6 @@ capacity_emit_human() {
         echo "  Requested:           $CAPACITY_PROFILE"
         echo "  Status:              $CAPACITY_PROFILE_STATUS"
         echo "  Reason:              $CAPACITY_PROFILE_REASON"
-    fi
-
-    if [[ "$CAPACITY_RECOMMEND_NTM" == "true" ]]; then
-        echo ""
-        echo "NTM Recommendation"
-        echo "  Agent count:         $CAPACITY_RECOMMENDED_AGENTS"
-        echo "  Plan:                one coordinator session plus focused worker sessions"
-        echo ""
-        echo "Launch Profiles"
-        echo "  5 agents:            ntm spawn myproject --label swarm-5 --cc=2 --cod=2 --gmi=1 --assign --stagger-mode=smart"
-        echo "  10 agents:           ntm spawn myproject --label swarm-10 --cc=4 --cod=4 --gmi=2 --assign --stagger-mode=smart"
-        echo "  25 agents:           ntm spawn myproject --label swarm-25 --cc=10 --cod=10 --gmi=5 --assign --stagger-mode=smart"
-        echo "  50 agents:           ntm spawn myproject --label swarm-50 --cc=20 --cod=20 --gmi=10 --assign --stagger-mode=smart"
-        echo ""
-        echo "Coordination"
-        echo "  RCH:                 use rch exec -- for CPU-heavy Rust build/test commands"
-        echo "  Agent Mail:          register, announce start, reserve files before edits"
-        echo "  Beads/BV:            use br ready --json and bv --robot-triage; never bare bv"
     fi
 
     if [[ "$CAPACITY_RCH_AVAILABLE" != "true" ]]; then

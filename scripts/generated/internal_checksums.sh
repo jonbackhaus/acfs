@@ -10,8 +10,8 @@
 declare -gA GTBI_INTERNAL_CHECKSUMS=(
   [scripts/lib/security.sh]="eb0e4c1f9336844a515cc7970aeabb618556ded3a46f2fa2ec04f28a78fb386c"
   [scripts/lib/agents.sh]="0e4863b6ebeed98422d3fa31fe0cd3de2331941543b565950be2a0c009e05a02"
-  [scripts/lib/update.sh]="0caa5dd8af2cb186478ca0f510335fe1b2d4c96496d207a3c91d2e8a1cd6ef32"
-  [scripts/lib/doctor.sh]="d8323e27506c9898ee6b7d395934f2c5564d9598a24f44bde5cca39c5efc741a"
+  [scripts/lib/update.sh]="9cdda2bcd42c1ca946eeddb5862b9d7bd478da9cf0dd0c4b7858c5974679bd9d"
+  [scripts/lib/doctor.sh]="f8f51826d2bdf89294b38e1eacecc07b6f487492f80d27a4f747b1b8d1af5ae2"
   [scripts/lib/doctor_fix.sh]="170a6eb88ee98b3abe4a39327ee61d1443f8bbeae36e9c483fccbea4f94781a7"
   [scripts/lib/offline_artifact_pack.sh]="2bf6919d38ea9e9f558abb5d01b82b3d032bace4d16a08f1824d678f53ebd505"
   [scripts/lib/autofix.sh]="0e31484327393b76a2938cf400001c1411275652b4673500f3d026ec1230399f"

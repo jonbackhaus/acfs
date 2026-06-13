@@ -490,7 +490,7 @@ _gtbi_doctor_source_first() {
     return 0
 }
 
-# Source output formatting library (for TOON support)
+# Source output formatting library (JSON output)
 _gtbi_doctor_source_first "output.sh" || true
 _gtbi_doctor_source_first "progress.sh" || true
 
@@ -547,7 +547,6 @@ _gtbi_doctor_validate_bin_dir_for_home() {
 
 # Global format options (set by argument parsing)
 _DOCTOR_OUTPUT_FORMAT=""
-_DOCTOR_SHOW_STATS=false
 
 
 # Prefer the installed VERSION file when available.
@@ -3300,7 +3299,7 @@ EOF
     if type -t gtbi_format_output &>/dev/null; then
         local resolved_format
         resolved_format=$(gtbi_resolve_format "$_DOCTOR_OUTPUT_FORMAT")
-        gtbi_format_output "$json_output" "$resolved_format" "$_DOCTOR_SHOW_STATS"
+        gtbi_format_output "$json_output" "$resolved_format"
     else
         # Fallback: direct JSON output
         printf '%s\n' "$json_output"
@@ -3536,7 +3535,7 @@ main() {
             --format|-f)
                 shift
                 if [[ -z "${1:-}" || "$1" == -* ]]; then
-                    echo "Error: --format requires a value (json or toon)" >&2
+                    echo "Error: --format requires a value (json)" >&2
                     return 1
                 fi
                 _DOCTOR_OUTPUT_FORMAT="$1"
@@ -3546,19 +3545,10 @@ main() {
             --format=*)
                 _DOCTOR_OUTPUT_FORMAT="${1#*=}"
                 if [[ -z "$_DOCTOR_OUTPUT_FORMAT" ]]; then
-                    echo "Error: --format requires a value (json or toon)" >&2
+                    echo "Error: --format requires a value (json)" >&2
                     return 1
                 fi
                 JSON_MODE=true
-                shift
-                ;;
-            --toon|-t)
-                _DOCTOR_OUTPUT_FORMAT="toon"
-                JSON_MODE=true
-                shift
-                ;;
-            --stats)
-                _DOCTOR_SHOW_STATS=true
                 shift
                 ;;
             --deep)
@@ -3578,13 +3568,11 @@ main() {
                 shift
                 ;;
             --help|-h)
-                echo "Usage: gtbi doctor [--json] [--format <fmt>] [--stats] [--deep] [--no-cache] [--fix] [--dry-run]"
+                echo "Usage: gtbi doctor [--json] [--format <fmt>] [--deep] [--no-cache] [--fix] [--dry-run]"
                 echo ""
                 echo "Options:"
                 echo "  --json           Output results as JSON"
-                echo "  --format <fmt>   Output format: json or toon (env: GTBI_OUTPUT_FORMAT, TOON_DEFAULT_FORMAT)"
-                echo "  --toon, -t       Shorthand for --format toon"
-                echo "  --stats          Show token savings statistics (JSON vs TOON bytes)"
+                echo "  --format <fmt>   Output format: json (env: GTBI_OUTPUT_FORMAT)"
                 echo "  --deep      Run functional tests (auth, connections)"
                 echo "  --no-cache  Skip cache, run all checks fresh"
                 echo "  --fix       Automatically apply safe fixes for failed checks"

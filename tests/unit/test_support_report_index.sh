@@ -78,9 +78,7 @@ test_full_bundle_report_links_present_files_only() {
     BUNDLE_FILES=()
     REDACTION_COUNT=2
 
-    write_file "$bundle_dir" "swarm_status.json" '{"schema_version":1,"status":"warn","warnings":["private path /home/alice/project and token ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmn were redacted"]}'
-    write_file "$bundle_dir" "swarm_timeline.json" '{"schema_version":1,"status":"warn","probes":[{"id":"rch","status":"warn","reason":"queue pressure"}]}'
-    write_file "$bundle_dir" "provenance.json" '{"schema_version":1,"status":"pass","summary":{"total":3}}'
+    write_file "$bundle_dir" "provenance.json" '{"schema_version":1,"status":"pass","summary":{"total":3},"warnings":["private path /home/alice/project and token ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmn were redacted"]}'
     write_file "$bundle_dir" "resource_profile.json" '{"schema_version":1,"status":"pass","mode":"dry-run","redaction":{"paths_redacted":true,"raw_paths_collected":false}}'
     write_file "$bundle_dir" "checkpoint_summary.json" '{"schema_version":1,"status":"warn","severity":"stale_checkpoint","redaction":{"raw_values_collected":false,"raw_paths_collected":false}}'
     write_file "$bundle_dir" "versions.json" '{"bash":"5.2"}'
@@ -91,8 +89,6 @@ test_full_bundle_report_links_present_files_only() {
     render_report "$bundle_dir"
 
     [[ -f "$report_file" ]] || return 1
-    assert_contains "$report_file" "[swarm_status.json](swarm_status.json)" || return 1
-    assert_contains "$report_file" "[swarm_timeline.json](swarm_timeline.json)" || return 1
     assert_contains "$report_file" "[provenance.json](provenance.json)" || return 1
     assert_contains "$report_file" "[resource_profile.json](resource_profile.json)" || return 1
     assert_contains "$report_file" "[checkpoint_summary.json](checkpoint_summary.json)" || return 1
@@ -120,7 +116,7 @@ test_minimal_bundle_handles_missing_optional_artifacts() {
     [[ -f "$report_file" ]] || return 1
     assert_contains "$report_file" "GTBI Support Bundle Report" || return 1
     assert_contains "$report_file" "[state.json](state.json)" || return 1
-    assert_not_contains "$report_file" "[swarm_status.json](swarm_status.json)" || return 1
+    assert_not_contains "$report_file" "[provenance.json](provenance.json)" || return 1
 
     pass "minimal_bundle_handles_missing_optional_artifacts"
 }
@@ -132,10 +128,10 @@ test_malformed_optional_json_is_labeled_degraded() {
     BUNDLE_FILES=()
     REDACTION_COUNT=0
 
-    write_file "$bundle_dir" "swarm_status.json" '{"schema_version":1,"status":'
+    write_file "$bundle_dir" "doctor.json" '{"schema_version":1,"status":'
     render_report "$bundle_dir"
 
-    assert_contains "$report_file" "[swarm_status.json](swarm_status.json)" || return 1
+    assert_contains "$report_file" "[doctor.json](doctor.json)" || return 1
     assert_contains "$report_file" "malformed" || return 1
 
     pass "malformed_optional_json_is_labeled_degraded"
@@ -169,7 +165,6 @@ test_manifest_redaction_proof_sanitizes_bad_sources() {
     REDACTION_COUNT=0
 
     write_file "$bundle_dir" "doctor.json" '{"status":'
-    write_file "$bundle_dir" "swarm_inventory.json" '{"schema_version":1,"status":"pass","inventory":{"present":true,"raw_hosts_collected":false},"summary":{"hosts_total":2},"redaction":{"paths_redacted":true,"raw_hosts_collected":false},"host":"prod-controller.example.com","path":"/home/alice/private","token":"ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmn"}'
     write_file "$bundle_dir" "environment.json" '{"status":"pass","hostname":"prod.example.com","home":"/home/alice","gtbi_home":"/home/alice/.gtbi"}'
     write_file "$bundle_dir" "provenance.json" '{"status":"pass","token":"ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmn"}'
     chmod 000 "$bundle_dir/provenance.json"
@@ -182,17 +177,10 @@ test_manifest_redaction_proof_sanitizes_bad_sources() {
       .diagnostics.doctor.source_status == "malformed" and
       .diagnostics.provenance.source.malformed == true and
       .diagnostics.provenance.source_status == "malformed" and
-      .diagnostics.swarm_inventory.included == true and
-      .diagnostics.swarm_inventory.records.raw_count == 2 and
-      .diagnostics.swarm_inventory.records.sanitized_count == 2 and
-      .diagnostics.swarm_inventory.records.raw_values_collected == false and
-      .diagnostics.swarm_inventory.raw_hosts_collected == false and
-      (.diagnostics.swarm_inventory.redaction.categories | index("token_like_notes")) and
       .diagnostics.environment.redaction.raw_values_collected == false
     ' "$manifest" >/dev/null || return 1
 
-    assert_not_contains "$manifest" "prod-controller.example.com" || return 1
-    assert_not_contains "$manifest" "/home/alice/private" || return 1
+    assert_not_contains "$manifest" "/home/alice" || return 1
     assert_not_contains "$manifest" "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmn" || return 1
 
     pass "manifest_redaction_proof_sanitizes_bad_sources"
@@ -208,7 +196,7 @@ test_manifest_redaction_proof_absent_sources_are_count_only() {
     write_manifest "$bundle_dir"
 
     jq -e '
-      (.diagnostics | keys | length) >= 8 and
+      (.diagnostics | keys | length) >= 7 and
       ([.diagnostics[] | select(
         .proof_schema_version == 1 and
         .included == false and
@@ -219,7 +207,6 @@ test_manifest_redaction_proof_absent_sources_are_count_only() {
         .redaction.raw_values_collected == false and
         (.redaction.categories | type) == "array"
       )] | length) == (.diagnostics | keys | length) and
-      (.diagnostics.swarm_timeline.redaction.categories | index("agent_mail_bodies")) and
       (.diagnostics.resource_profile.redaction.categories | index("wrapper_commands")) and
       (.diagnostics.environment.redaction.categories | index("hostnames"))
     ' "$manifest" >/dev/null || return 1
