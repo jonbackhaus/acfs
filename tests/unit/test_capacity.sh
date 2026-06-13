@@ -30,8 +30,7 @@ run_capacity_json() {
     GTBI_CAPACITY_MEM_TOTAL_KB="$2" \
     GTBI_CAPACITY_DISK_AVAILABLE_KB="$3" \
     GTBI_CAPACITY_RCH_AVAILABLE="$4" \
-    GTBI_CAPACITY_NTM_AVAILABLE="$5" \
-    bash "$CAPACITY_SH" --json "${@:6}"
+    bash "$CAPACITY_SH" --json "${@:5}"
 }
 
 write_fixture_artifact() {
@@ -40,8 +39,7 @@ write_fixture_artifact() {
     local mem_total_kb="$3"
     local disk_available_kb="$4"
     local rch_available="$5"
-    local ntm_available="$6"
-    shift 6
+    shift 5
 
     {
         echo "test=$name"
@@ -49,7 +47,6 @@ write_fixture_artifact() {
         echo "mem_total_kb=$mem_total_kb"
         echo "disk_available_kb=$disk_available_kb"
         echo "rch_available=$rch_available"
-        echo "ntm_available=$ntm_available"
         printf 'args='
         printf ' %q' "$@"
         printf '\n'
@@ -70,13 +67,12 @@ run_capacity_json_fixture() {
     local mem_total_kb="$3"
     local disk_available_kb="$4"
     local rch_available="$5"
-    local ntm_available="$6"
-    shift 6
+    shift 5
 
-    write_fixture_artifact "$name" "$cpu_count" "$mem_total_kb" "$disk_available_kb" "$rch_available" "$ntm_available" "$@"
+    write_fixture_artifact "$name" "$cpu_count" "$mem_total_kb" "$disk_available_kb" "$rch_available" "$@"
 
     local output
-    output="$(run_capacity_json "$cpu_count" "$mem_total_kb" "$disk_available_kb" "$rch_available" "$ntm_available" "$@")"
+    output="$(run_capacity_json "$cpu_count" "$mem_total_kb" "$disk_available_kb" "$rch_available" "$@")"
     write_output_artifact "$name" "json" "$output"
     printf '%s\n' "$output"
 }
@@ -132,20 +128,18 @@ EOF
 
 test_high_capacity_json() {
     local output
-    output="$(run_capacity_json_fixture high_capacity_json 64 268435456 314572800 true true --profile 25-agents --recommend-ntm)"
+    output="$(run_capacity_json_fixture high_capacity_json 64 268435456 314572800 true --profile 25-agents)"
 
     jq -e '
       .schema_version == 1 and
       .host.cpu_count == 64 and
       .host.mem_total_mib == 262144 and
       .tools.rch.available == true and
+      (.tools | has("ntm") | not) and
+      (has("ntm") | not) and
       .capacity.safe_agent_count == 64 and
       .capacity.recommended_agent_count == 44 and
-      .profile_check.status == "pass" and
-      .ntm.agent_count == 44 and
-      (.ntm.profiles | length) == 4 and
-      (.ntm.profiles[] | select(.agents == 25 and .status == "pass" and (.command | contains("ntm spawn myproject --label swarm-25")))) and
-      (.ntm.profiles[] | select(.agents == 50 and .status == "warn" and (.rch_policy | contains("rch exec --"))))
+      .profile_check.status == "pass"
     ' <<<"$output" >/dev/null || return 1
 
     pass "high_capacity_json"
@@ -153,7 +147,7 @@ test_high_capacity_json() {
 
 test_profile_warns_above_recommended() {
     local output
-    output="$(run_capacity_json_fixture profile_warns_above_recommended 64 268435456 314572800 true true --profile 50)"
+    output="$(run_capacity_json_fixture profile_warns_above_recommended 64 268435456 314572800 true --profile 50)"
 
     jq -e '.profile_check.status == "warn" and .profile_check.requested_agents == 50' <<<"$output" >/dev/null || return 1
 
@@ -162,7 +156,7 @@ test_profile_warns_above_recommended() {
 
 test_small_host_fails_oversized_profile() {
     local output
-    output="$(run_capacity_json_fixture small_host_fails_oversized_profile 2 4194304 15728640 false false --profile 10)"
+    output="$(run_capacity_json_fixture small_host_fails_oversized_profile 2 4194304 15728640 false --profile 10)"
 
     jq -e '
       .status == "fail" and
@@ -176,7 +170,7 @@ test_small_host_fails_oversized_profile() {
 
 test_heavy_workload_capacity() {
     local output
-    output="$(run_capacity_json_fixture heavy_workload_capacity 16 67108864 209715200 true true --workload heavy --profile 8)"
+    output="$(run_capacity_json_fixture heavy_workload_capacity 16 67108864 209715200 true --workload heavy --profile 8)"
 
     jq -e '
       .assumptions.workload == "heavy" and
@@ -192,7 +186,7 @@ test_heavy_workload_capacity() {
 
 test_low_disk_fails_capacity() {
     local output
-    output="$(run_capacity_json_fixture low_disk_fails_capacity 16 67108864 4096 true true --profile 1)"
+    output="$(run_capacity_json_fixture low_disk_fails_capacity 16 67108864 4096 true --profile 1)"
 
     jq -e '
       .status == "fail" and
@@ -226,18 +220,14 @@ test_human_output() {
         GTBI_CAPACITY_MEM_TOTAL_KB=33554432 \
         GTBI_CAPACITY_DISK_AVAILABLE_KB=104857600 \
         GTBI_CAPACITY_RCH_AVAILABLE=true \
-        GTBI_CAPACITY_NTM_AVAILABLE=false \
-        bash "$CAPACITY_SH" --workload standard --profile 5 --recommend-ntm
+        bash "$CAPACITY_SH" --workload standard --profile 5
     )"
-    write_fixture_artifact human_output 8 33554432 104857600 true false --workload standard --profile 5 --recommend-ntm
+    write_fixture_artifact human_output 8 33554432 104857600 true --workload standard --profile 5
     write_output_artifact "human_output" "txt" "$output"
 
     grep -Fq "GTBI Capacity Report" <<<"$output" || return 1
     grep -Fq "Recommended agents:" <<<"$output" || return 1
     grep -Fq "Profile Check" <<<"$output" || return 1
-    grep -Fq "Launch Profiles" <<<"$output" || return 1
-    grep -Fq "25 agents:" <<<"$output" || return 1
-    grep -Fq "Agent Mail:" <<<"$output" || return 1
 
     pass "human_output"
 }
