@@ -12,9 +12,6 @@
 #   --mode vibe   Enable passwordless sudo, full agent permissions
 #   --dry-run     Print what would be done without changing system
 #   --print       Print upstream scripts/versions that will be run
-#   --skip-postgres   Skip PostgreSQL 18 installation
-#   --skip-vault      Skip HashiCorp Vault installation
-#   --skip-cloud      Skip cloud CLIs (wrangler, supabase, vercel)
 #   --resume          Resume from checkpoint (default when state exists)
 #   --force-reinstall Start fresh, ignore existing state
 #   --reset-state     Move state file aside and exit (for debugging)
@@ -218,9 +215,6 @@ DRY_RUN=false
 PRINT_MODE=false
 PIN_REF_MODE=false
 MODE="vibe"
-SKIP_POSTGRES=false
-SKIP_VAULT=false
-SKIP_CLOUD=false
 STRICT_MODE=false
 
 # Manifest-driven selection options (mjt.5.3)
@@ -1197,9 +1191,6 @@ generate_resume_hint() {
     fi
 
     # Add skip flags that were used
-    [[ "${SKIP_POSTGRES:-false}" == "true" ]] && resume_args+=(--skip-postgres)
-    [[ "${SKIP_VAULT:-false}" == "true" ]] && resume_args+=(--skip-vault)
-    [[ "${SKIP_CLOUD:-false}" == "true" ]] && resume_args+=(--skip-cloud)
     [[ "${SKIP_PREFLIGHT:-false}" == "true" ]] && resume_args+=(--skip-preflight)
     [[ "${SKIP_UBUNTU_UPGRADE:-false}" == "true" ]] && resume_args+=(--skip-ubuntu-upgrade)
 
@@ -1492,18 +1483,6 @@ parse_args() {
                         ;;
                 esac
                 shift 2
-                ;;
-            --skip-postgres)
-                SKIP_POSTGRES=true
-                shift
-                ;;
-            --skip-vault)
-                SKIP_VAULT=true
-                shift
-                ;;
-            --skip-cloud)
-                SKIP_CLOUD=true
-                shift
                 ;;
             --resume)
                 export GTBI_FORCE_RESUME=true
@@ -2094,8 +2073,6 @@ source_generated_installers() {
         "install_lang.sh"
         "install_tools.sh"
         "install_agents.sh"
-        "install_db.sh"
-        "install_cloud.sh"
         "install_stack.sh"
         "install_gtbi.sh"
     )
@@ -2213,11 +2190,6 @@ print_execution_plan() {
     done
 
     echo ""
-    echo "Legacy options (will be migrated to --skip):"
-    echo "  --skip-postgres: $SKIP_POSTGRES"
-    echo "  --skip-vault:    $SKIP_VAULT"
-    echo "  --skip-cloud:    $SKIP_CLOUD"
-    echo ""
     echo "This is a preview. Run without --print-plan to execute."
 }
 
@@ -2328,7 +2300,7 @@ run_autofix_checks() {
 # Related beads: gastown_batteries_included-545
 
 run_preflight_checks() {
-    log_step "0/9" "Running pre-flight validation..."
+    log_step "0/8" "Running pre-flight validation..."
 
     local preflight_script=""
     local preflight_tmp=""
@@ -4578,7 +4550,7 @@ restore_previous_gtbi_state_file() {
 
 ensure_base_deps() {
     set_phase "base_deps" "Base Dependencies" 1
-    log_step "0/9" "Checking base dependencies..."
+    log_step "0/8" "Checking base dependencies..."
     local apt_get_bin=""
     local -a sudo_cmd=()
 
@@ -4668,7 +4640,7 @@ gtbi_generate_random_password() {
 
 normalize_user() {
     set_phase "user_setup" "User Normalization"
-    log_step "1/9" "Normalizing user account..."
+    log_step "1/8" "Normalizing user account..."
 
     if [[ $EUID -eq 0 ]] && type -t prompt_ssh_key &>/dev/null; then
         if ! prompt_ssh_key; then
@@ -4704,7 +4676,7 @@ normalize_user() {
 # ============================================================
 setup_filesystem() {
     set_phase "filesystem" "Filesystem Setup"
-    log_step "2/9" "Setting up filesystem..."
+    log_step "2/8" "Setting up filesystem..."
 
     if gtbi_use_generated_category "filesystem"; then
         log_detail "Using generated installers for filesystem (phase 3)"
@@ -4843,7 +4815,7 @@ gtbi_zshrc_is_managed_loader() {
 
 setup_shell() {
     set_phase "shell_setup" "Shell Setup"
-    log_step "3/9" "Setting up shell..."
+    log_step "3/8" "Setting up shell..."
 
     if gtbi_use_generated_category "shell"; then
         log_detail "Using generated installers for shell (phase 4)"
@@ -4860,7 +4832,7 @@ setup_shell() {
 
 install_cli_tools() {
     set_phase "cli_tools" "CLI Tools"
-    log_step "4/9" "Installing CLI tools..."
+    log_step "4/8" "Installing CLI tools..."
 
     local used_generated_cli=false
     local used_generated_network=false
@@ -4892,7 +4864,7 @@ install_cli_tools() {
 
 install_languages() {
     set_phase "languages" "Language Runtimes"
-    log_step "5/9" "Installing language runtimes..."
+    log_step "5/8" "Installing language runtimes..."
 
     if gtbi_use_generated_category "lang"; then
         log_detail "Using generated installers for lang (phase 6)"
@@ -4913,7 +4885,7 @@ install_languages() {
 # ============================================================
 install_agents_phase() {
     set_phase "agents" "Coding Agents"
-    log_step "6/9" "Installing coding agents..."
+    log_step "6/8" "Installing coding agents..."
 
     if gtbi_use_generated_category "agents"; then
         log_detail "Using generated installers for agents (phase 7)"
@@ -4952,38 +4924,6 @@ install_agents_phase() {
     fi
     log_warn "Generated agent installers not found; skipping"
     return 0
-}
-
-# ============================================================
-# Phase 7: Cloud & database tools
-# ============================================================
-install_cloud_db() {
-    set_phase "cloud_db" "Cloud & Database Tools"
-    log_step "7/9" "Installing cloud & database tools..."
-
-    local codename="noble"
-    if [[ -f /etc/os-release ]]; then
-        # shellcheck disable=SC1091
-        source /etc/os-release
-        codename="${VERSION_CODENAME:-noble}"
-    fi
-
-    if gtbi_use_generated_category "db"; then
-        log_detail "Using generated installers for db (phase 8)"
-        gtbi_run_generated_category_phase "db" "8" || return 1
-    fi
-
-    if gtbi_use_generated_category "tools"; then
-        log_detail "Using generated installers for tools (phase 8)"
-        gtbi_run_generated_category_phase "tools" "8" || return 1
-    fi
-
-    if gtbi_use_generated_category "cloud"; then
-        log_detail "Using generated installers for cloud (phase 8)"
-        gtbi_run_generated_category_phase "cloud" "8" || return 1
-    fi
-
-    log_success "Cloud & database tools phase complete"
 }
 
 # ============================================================
@@ -5036,7 +4976,7 @@ binary_installed() {
 
 install_stack_phase() {
     set_phase "stack" "Gastown Stack"
-    log_step "8/9" "Installing Gastown stack..."
+    log_step "7/8" "Installing Gastown stack..."
 
     # Install any tools-category modules at phase 9 (e.g. utils.*)
     if gtbi_use_generated_category "tools"; then
@@ -5245,48 +5185,6 @@ run_smoke_test() {
     else
         echo "⚠️ beads (bd): not working (re-run: $(gtbi_smoke_install_fix_command stack.bd))" >&2
         ((warnings += 1))
-    fi
-
-    # Non-critical: PostgreSQL service running
-    if [[ "$SKIP_POSTGRES" == "true" ]]; then
-        echo "⚠️ PostgreSQL: skipped (optional)" >&2
-        ((warnings += 1))
-    elif command_exists systemctl && [[ -d /run/systemd/system ]] && systemctl is-active --quiet postgresql 2>/dev/null; then
-        echo "✅ PostgreSQL: running" >&2
-    elif command_exists pg_isready && pg_isready -q 2>/dev/null; then
-        echo "✅ PostgreSQL: running" >&2
-    else
-        echo "⚠️ PostgreSQL: not running (optional)" >&2
-        ((warnings += 1))
-    fi
-
-    # Non-critical: Vault installed
-    if [[ "$SKIP_VAULT" == "true" ]]; then
-        echo "⚠️ Vault: skipped (optional)" >&2
-        ((warnings += 1))
-    elif binary_installed "vault"; then
-        echo "✅ Vault: installed" >&2
-    else
-        echo "⚠️ Vault: not installed (optional)" >&2
-        ((warnings += 1))
-    fi
-
-    # Non-critical: Cloud CLIs installed
-    if [[ "$SKIP_CLOUD" == "true" ]]; then
-        echo "⚠️ Cloud CLIs: skipped (optional)" >&2
-        ((warnings += 1))
-    else
-        local missing_cloud=()
-        binary_installed "wrangler" || missing_cloud+=("wrangler")
-        binary_installed "supabase" || missing_cloud+=("supabase")
-        binary_installed "vercel" || missing_cloud+=("vercel")
-
-        if [[ ${#missing_cloud[@]} -eq 0 ]]; then
-            echo "✅ Cloud CLIs: wrangler, supabase, vercel" >&2
-        else
-            echo "⚠️ Cloud CLIs: missing ${missing_cloud[*]} (optional)" >&2
-            ((warnings += 1))
-        fi
     fi
 
     echo "" >&2
@@ -5647,11 +5545,6 @@ main() {
         source_generated_installers
     fi
 
-    # Map legacy --skip-* flags to SKIP_MODULES (mjt.5.5)
-    # This allows --skip-postgres, --skip-vault, --skip-cloud to work
-    # through the manifest-driven selection engine
-    gtbi_apply_legacy_skips
-
     # Resolve module selection (mjt.5.4)
     # Computes GTBI_EFFECTIVE_PLAN and GTBI_EFFECTIVE_RUN based on:
     # - CLI flags (--only, --skip, --no-deps, --only-phase)
@@ -5917,15 +5810,14 @@ main() {
             fi
         }
 
-        _run_phase_with_report "user_setup" "1/9 User Setup" normalize_user
-        _run_phase_with_report "filesystem" "2/9 Filesystem" setup_filesystem
-        _run_phase_with_report "shell_setup" "3/9 Shell Setup" setup_shell
-        _run_phase_with_report "cli_tools" "4/9 CLI Tools" install_cli_tools
-        _run_phase_with_report "languages" "5/9 Languages" install_languages
-        _run_phase_with_report "agents" "6/9 Coding Agents" install_agents_phase
-        _run_phase_with_report "cloud_db" "7/9 Cloud & DB" install_cloud_db
-        _run_phase_with_report "stack" "8/9 Stack" install_stack_phase
-        _run_phase_with_report "finalize" "9/9 Finalize" finalize
+        _run_phase_with_report "user_setup" "1/8 User Setup" normalize_user
+        _run_phase_with_report "filesystem" "2/8 Filesystem" setup_filesystem
+        _run_phase_with_report "shell_setup" "3/8 Shell Setup" setup_shell
+        _run_phase_with_report "cli_tools" "4/8 CLI Tools" install_cli_tools
+        _run_phase_with_report "languages" "5/8 Languages" install_languages
+        _run_phase_with_report "agents" "6/8 Coding Agents" install_agents_phase
+        _run_phase_with_report "stack" "7/8 Stack" install_stack_phase
+        _run_phase_with_report "finalize" "8/8 Finalize" finalize
 
         # Always update checksums.yaml and VERSION after all phases complete
         # This ensures resume installs get fresh metadata even if finalize was previously completed

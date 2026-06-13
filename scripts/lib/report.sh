@@ -199,9 +199,6 @@ report_build_resume_command() {
     if [[ "${STRICT_MODE:-false}" == "true" || "${GTBI_STRICT_MODE:-false}" == "true" ]]; then
         resume_args+=(--strict)
     fi
-    [[ "${SKIP_POSTGRES:-false}" == "true" ]] && resume_args+=(--skip-postgres)
-    [[ "${SKIP_VAULT:-false}" == "true" ]] && resume_args+=(--skip-vault)
-    [[ "${SKIP_CLOUD:-false}" == "true" ]] && resume_args+=(--skip-cloud)
     [[ "${SKIP_PREFLIGHT:-false}" == "true" ]] && resume_args+=(--skip-preflight)
     [[ "${SKIP_UBUNTU_UPGRADE:-false}" == "true" ]] && resume_args+=(--skip-ubuntu-upgrade)
 

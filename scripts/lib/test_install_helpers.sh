@@ -508,73 +508,6 @@ test_plan_does_not_mutate_state() {
 # Test Cases: Legacy Flag Mapping (mjt.5.5)
 # ============================================================
 
-test_legacy_skip_postgres() {
-    local name="--skip-postgres maps to SKIP_MODULES"
-    reset_selection
-    SKIP_POSTGRES=true
-
-    gtbi_apply_legacy_skips
-
-    local found=false
-    for module in "${SKIP_MODULES[@]}"; do
-        if [[ "$module" == "db.postgres18" ]]; then
-            found=true
-            break
-        fi
-    done
-
-    if [[ "$found" == "true" ]]; then
-        test_pass "$name"
-    else
-        test_fail "$name" "db.postgres18 not in SKIP_MODULES"
-    fi
-}
-
-test_legacy_skip_vault() {
-    local name="--skip-vault maps to SKIP_MODULES"
-    reset_selection
-    SKIP_VAULT=true
-
-    gtbi_apply_legacy_skips
-
-    local found=false
-    for module in "${SKIP_MODULES[@]}"; do
-        if [[ "$module" == "tools.vault" ]]; then
-            found=true
-            break
-        fi
-    done
-
-    if [[ "$found" == "true" ]]; then
-        test_pass "$name"
-    else
-        test_fail "$name" "tools.vault not in SKIP_MODULES"
-    fi
-}
-
-test_legacy_skip_cloud() {
-    local name="--skip-cloud maps to multiple cloud modules"
-    reset_selection
-    SKIP_CLOUD=true
-
-    gtbi_apply_legacy_skips
-
-    local found_wrangler=false found_supabase=false found_vercel=false
-    for module in "${SKIP_MODULES[@]}"; do
-        case "$module" in
-            "cloud.wrangler") found_wrangler=true ;;
-            "cloud.supabase") found_supabase=true ;;
-            "cloud.vercel") found_vercel=true ;;
-        esac
-    done
-
-    if [[ "$found_wrangler" == "true" && "$found_supabase" == "true" && "$found_vercel" == "true" ]]; then
-        test_pass "$name"
-    else
-        test_fail "$name" "Missing cloud modules in SKIP_MODULES"
-    fi
-}
-
 test_legacy_flags_affect_selection() {
     local name="Legacy flags integrate with selection engine"
     reset_selection
@@ -737,9 +670,6 @@ test_plan_is_deterministic
 test_plan_does_not_mutate_state
 
 # Legacy flag mapping tests (mjt.5.5)
-test_legacy_skip_postgres
-test_legacy_skip_vault
-test_legacy_skip_cloud
 test_legacy_flags_affect_selection
 
 # should_run_module tests
