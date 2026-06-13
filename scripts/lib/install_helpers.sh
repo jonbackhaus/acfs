@@ -147,7 +147,6 @@ gtbi_normalize_only_phases() {
             cli_tools|cli) normalized+=("5") ;;
             languages|language|lang) normalized+=("6") ;;
             agents|agent) normalized+=("7") ;;
-            cloud_db|cloud-db) normalized+=("8") ;;
             stack) normalized+=("9") ;;
             finalize|final) normalized+=("10") ;;
             *) normalized+=("$phase") ;;

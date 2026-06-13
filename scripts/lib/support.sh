@@ -1471,8 +1471,7 @@ support_checkpoint_summary_json() {
             elif $phase == "shell_setup" then "cli_tools"
             elif $phase == "cli_tools" then "languages"
             elif $phase == "languages" then "agents"
-            elif $phase == "agents" then "cloud_db"
-            elif $phase == "cloud_db" then "stack"
+            elif $phase == "agents" then "stack"
             elif $phase == "stack" then "finalize"
             else null end;
           . as $state
