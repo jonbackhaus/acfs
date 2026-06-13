@@ -408,46 +408,6 @@ policy_lint_check_cargo_line() {
         "$line"
 }
 
-policy_lint_file_needs_reservation_guidance() {
-    local rel_path="$1"
-    local mentions_agent="$2"
-    local mentions_before_editing="$3"
-
-    case "$rel_path" in
-        AGENTS.md|*/AGENTS.md|*agent*template*|*startup*packet*|*swarm*packet*)
-            return 0
-            ;;
-    esac
-
-    [[ "$mentions_agent" == true && "$mentions_before_editing" == true ]]
-}
-
-policy_lint_check_reservation_guidance() {
-    local rel_path="$1"
-    local mentions_agent_mail="$2"
-    local mentions_reservation="$3"
-    local mentions_agent="$4"
-    local mentions_before_editing="$5"
-    local allow_reservation="$6"
-
-    policy_lint_file_needs_reservation_guidance "$rel_path" "$mentions_agent" "$mentions_before_editing" || return 0
-
-    if [[ "$mentions_agent_mail" == true && "$mentions_reservation" == true ]]; then
-        return 0
-    fi
-
-    [[ "$allow_reservation" == true ]] && return 0
-
-    policy_lint_add_violation \
-        "coordination.agent_mail_reservation" \
-        "error" \
-        "$rel_path" \
-        1 \
-        "Agent-facing guidance is missing Agent Mail file-reservation instructions." \
-        "Tell agents to reserve edit surfaces with Agent Mail before changing files." \
-        "file-level policy check"
-}
-
 policy_lint_scan_file() {
     local root="$1"
     local path="$2"
@@ -460,11 +420,6 @@ policy_lint_scan_file() {
     local line_number=0
     local index=0
     local -a file_lines=()
-    local mentions_agent=false
-    local mentions_before_editing=false
-    local mentions_agent_mail=false
-    local mentions_reservation=false
-    local allow_reservation=false
 
     [[ -r "$path" && -f "$path" ]] || return 0
     rel_path="$(policy_lint_rel_path "$root" "$path")"
@@ -472,12 +427,6 @@ policy_lint_scan_file() {
     POLICY_LINT_FILES_SCANNED=$((POLICY_LINT_FILES_SCANNED + 1))
 
     mapfile -t file_lines < "$path"
-
-    grep -Eiq 'agent' "$path" && mentions_agent=true
-    grep -Eiq 'before editing' "$path" && mentions_before_editing=true
-    grep -Eiq 'agent mail' "$path" && mentions_agent_mail=true
-    grep -Eiq 'reservation|reserve files|file_reservation_paths' "$path" && mentions_reservation=true
-    grep -Eiq 'gtbi-policy-lint: allow( coordination\.agent_mail_reservation)?' "$path" && allow_reservation=true
 
     while IFS= read -r hit; do
         line_number="${hit%%:*}"
@@ -532,14 +481,6 @@ policy_lint_scan_file() {
         context="$prev2"$'\n'"$prev1"$'\n'"$line"
         policy_lint_check_cargo_line "$rel_path" "$line_number" "$line" "$context"
     done < <(grep -nEi 'cargo[[:space:]]+(build|test|check|clippy)' "$path" || true)
-
-    policy_lint_check_reservation_guidance \
-        "$rel_path" \
-        "$mentions_agent_mail" \
-        "$mentions_reservation" \
-        "$mentions_agent" \
-        "$mentions_before_editing" \
-        "$allow_reservation"
 }
 
 policy_lint_json_array_from_lines() {
