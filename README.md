@@ -2126,9 +2126,6 @@ harness_summary  # Outputs: 15 passed, 0 failed, 2 skipped
 
 # Selection logic tests
 ./tests/vm/selection_checks.sh
-
-# Web E2E tests
-./tests/web/run_e2e.sh
 ```
 
 ### Requirements
