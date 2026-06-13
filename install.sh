@@ -3567,10 +3567,9 @@ gtbi_run_verified_upstream_script_as_target_with_env() {
             return 1
         }
 
-        # Parse fresh checksums and get the updated installer contract.  The
-        # URL can change during migrations, such as mcp_agent_mail ->
-        # mcp_agent_mail_rust, so re-fetch before comparing against the fresh
-        # hash when the contract moved.
+        # Parse fresh checksums and get the updated installer contract.  An
+        # installer URL can change during upstream migrations, so re-fetch
+        # before comparing against the fresh hash when the contract moved.
         if ! gtbi_parse_checksums_content "$fresh_content"; then
             log_error "Fresh checksums.yaml contains no valid installer checksums"
             return 1
