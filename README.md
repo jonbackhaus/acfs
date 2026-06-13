@@ -146,7 +146,7 @@ flowchart TB
     Generator["packages/manifest<br/>Parser (Zod) + generate.ts"]
     Generated["scripts/generated/* (reference)<br/>category installers + doctor_checks.sh"]
     Installer["install.sh (production one-liner)"]
-    Lib["scripts/lib/*<br/>security / doctor / update / services-setup"]
+    Lib["scripts/lib/*<br/>security / doctor / update"]
     Configs["gtbi/*<br/>zshrc + tmux.conf + onboard lessons"]
     Checksums["checksums.yaml<br/>sha256 for upstream installers"]
     Tests["tests/vm/test_install_ubuntu.sh<br/>Docker integration test"]
@@ -157,7 +157,7 @@ flowchart TB
     Run["Run install.sh"]
     Verify["Verified upstream installers<br/>(security.sh + checksums.yaml)"]
     GtbiHome["~/.gtbi/<br/>configs + scripts + state.json"]
-    Commands["Commands<br/>gtbi doctor / gtbi update / gtbi services-setup / onboard"]
+    Commands["Commands<br/>gtbi doctor / gtbi update / onboard"]
     Tools["Installed tools<br/>bun/uv/rust/go/nvm + tmux/rg/gh + ..."]
     Agents["Agent CLIs<br/>claude / codex / gemini / opencode"]
     Stack["Agent stack<br/>dolt / bd (beads) / gt (Gastown)"]
@@ -485,7 +485,6 @@ Before running the full installer, validate your system:
 ```bash
 curl -fsSL "https://raw.githubusercontent.com/jonbackhaus/gtbi/main/scripts/preflight.sh" | bash
 curl -fsSL "https://raw.githubusercontent.com/jonbackhaus/gtbi/main/scripts/preflight.sh" | bash -s -- --json
-curl -fsSL "https://raw.githubusercontent.com/jonbackhaus/gtbi/main/scripts/preflight.sh" | bash -s -- --format toon
 curl -fsSL "https://raw.githubusercontent.com/jonbackhaus/gtbi/main/scripts/preflight.sh" | bash -s -- --network=skip
 ```
 
@@ -593,7 +592,7 @@ After installation, keeping tools current is handled by `gtbi-update`. It provid
 ### Usage
 
 ```bash
-gtbi-update                  # Update apt, runtimes, shell, agents, cloud CLIs, and stack tools
+gtbi-update                  # Update apt, runtimes, shell, agents, and stack tools
 gtbi-update --agents-only    # Only update coding agents
 gtbi-update --runtime-only   # Only update runtimes (bun, rust, uv, go)
 gtbi-update --dry-run        # Preview changes without making them
@@ -624,7 +623,6 @@ gtbi-update --bootstrap-self-update
 ```bash
 --apt-only       Only update system packages
 --agents-only    Only update coding agents
---cloud-only     Only update cloud CLIs
 --shell-only     Only update shell tools (OMZ, P10K, plugins, Atuin, Zoxide)
 --runtime-only   Only update runtimes (bun, rust, uv, go)
 --stack          Include the agent stack (dolt, beads, Gastown; enabled by default)
@@ -634,7 +632,6 @@ gtbi-update --bootstrap-self-update
 ```bash
 --no-apt         Skip apt updates
 --no-agents      Skip agent updates
---no-cloud       Skip cloud CLI updates
 --no-shell       Skip shell tool updates
 --no-runtime     Skip runtime updates (bun, rust, uv, go)
 ```
@@ -684,7 +681,6 @@ gtbi dashboard generate      # Generate HTML status page
 gtbi doctor                  # Health checks
 gtbi newproj                 # Create a new project (TUI or CLI)
 gtbi update                  # Update all tools
-gtbi services-setup          # Configure agent credentials
 gtbi continue                # View upgrade progress after reboot
 ```
 
@@ -875,20 +871,6 @@ The dashboard provides:
 - Tool versions and status
 - Quick command reference
 - Recent activity summary
-
-### `gtbi services-setup` — Credential Configuration
-
-Interactive wizard for configuring AI agent credentials and cloud service logins.
-
-```bash
-gtbi services-setup          # Run full setup wizard
-```
-
-Guides you through:
-- **Claude Code**: API key configuration
-- **Codex CLI**: ChatGPT account login
-- **Gemini CLI**: Google account authentication
-- **GitHub CLI**: `gh auth login`
 
 ### `gtbi continue` — Upgrade Progress
 
@@ -1539,7 +1521,6 @@ run_smoke_test                      # Execute all smoke tests
 
 **Non-Critical Checks** (warnings only):
 - Agent authentication configured
-- Cloud CLIs authenticated
 - Optional tools installed
 
 Example output:
@@ -1692,7 +1673,7 @@ Offline mode reports local manifest/checksum consistency for stack tools. Networ
 
 ### Agent Readiness Audit (`scripts/agent-readiness-audit.sh`)
 
-Run the local agent readiness audit before launching a swarm on a freshly installed VPS:
+Run the local agent readiness audit before launching agents on a freshly installed VPS:
 
 ```bash
 bash scripts/agent-readiness-audit.sh
@@ -2300,8 +2281,6 @@ A single agent with basic tooling is useful. Three agents with:
 
 ...can accomplish in one day what would take a solo developer a week.
 
-Tip: run `gtbi services-setup` to configure agent logins.
-
 **This is the flywheel effect in action.** Better tools → more capable agents → more code shipped → better understanding of what tools are needed → better tools.
 
 ---
@@ -2595,68 +2574,6 @@ diffable, and syncable across machines via refs/dolt/data.
 gt drives multi-agent runs over the shared beads graph,
 spawning and supervising agents against ready work.
 ```
-
-### Dry-Run Swarm Simulation
-
-Before launching any real swarm, ask GTBI for a queue-aware plan:
-
-```bash
-gtbi swarm plan --agents 25 --profile balanced --workload standard
-```
-
-The planner reads the local swarm status and capacity model, incorporates
-active tmux sessions, beads in-progress counts, and host resource headroom,
-then prints a pass/warn/fail recommendation. It is advisory only: it does not
-launch agents, mutate beads, or run build commands. JSON output is available
-with `--json`, and fixture replay is available with `--status-file`.
-
-For multi-host planning, keep a local redacted inventory at
-`~/.gtbi/swarm/hosts.inventory.json`:
-
-```bash
-gtbi swarm inventory report
-gtbi swarm inventory validate --json
-gtbi swarm inventory export --format json --output inventory.redacted.json
-gtbi swarm inventory import --input inventory.redacted.json
-```
-
-The inventory commands are local and advisory. They read or write JSON files,
-preserve unknown fields for future versions, reject sensitive field names such
-as hostnames, IPs, keys, tokens, passwords, and home paths, and never SSH,
-launch agents, mutate beads, or change config.
-
-For each agent you plan to launch, generate a bounded startup packet from the
-selected bead plus current repo instructions:
-
-```bash
-gtbi swarm packet --bead bd-1234 --agent-name BlueLake --role implementation
-gtbi swarm packet --json --bead bd-1234 --agent-name BlueLake
-```
-
-The packet is designed for prompt injection at agent launch. It prioritizes live
-AGENTS.md, README.md, and beads state over memory-derived hints and includes
-drift checks. It is read-only: it does not claim work, send messages, start
-agents, run builds, or edit generated files.
-
-Before launching a large real swarm, GTBI can run an offline simulation of the control plane:
-
-```bash
-gtbi swarm simulate
-```
-
-The default simulation runs 10, 25, and 50 logical-agent scenarios without launching tmux sessions, model CLIs, beads mutations, or local CPU-heavy builds. It writes artifacts for each scenario: generated launch plan, telemetry JSON, capacity/resource sample, timing, and pass/fail summary. Treat this as a local readiness harness, not a substitute for provider factory tests on real VPS hosts.
-
-After one or more simulation runs, calibrate the static capacity assumptions
-against those local artifacts:
-
-```bash
-gtbi swarm calibration --artifact-dir ~/.gtbi/logs/swarm-simulations
-gtbi swarm calibration --json --artifact-dir ./swarm-artifacts --rch-file ./rch-timing.json
-```
-
-The calibration report is read-only. It classifies the local evidence as
-conservative, aligned, or too aggressive, handles missing or partial artifacts
-with warnings, and never changes capacity defaults, tmux sessions, or beads.
 
 ---
 
@@ -3247,7 +3164,7 @@ By default, sensitive data is automatically redacted:
 | Passwords | `"password": "..."` | `"password": "<REDACTED:password>"` |
 | Private key blocks | `-----BEGIN ... PRIVATE KEY-----` | `<REDACTED:private_key>` |
 
-Before launching a large agent swarm or sharing a support bundle, run a local credential preflight:
+Before launching agents or sharing a support bundle, run a local credential preflight:
 
 ```bash
 gtbi credential-preflight --json
@@ -3831,7 +3748,6 @@ GTBI is actively developed. Here's what's coming:
 
 - [ ] **Full manifest-driven execution**: install.sh consumes generated scripts
 - [x] **Tailscale integration**: Zero-config VPN for secure remote access ✓
-- [x] **Services setup wizard**: Guide users through service account setup (`gtbi services-setup`) ✓
 - [ ] **Interactive module selection**: Choose what to install via TUI
 
 ### Mid-Term (Q2 2025)

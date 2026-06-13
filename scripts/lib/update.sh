@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 # GTBI Update - Update All Components
-# Updates system packages, agents, cloud CLIs, and stack tools
+# Updates system packages, agents, and stack tools
 # ============================================================
 
 set -euo pipefail
