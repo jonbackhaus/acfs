@@ -296,6 +296,13 @@ install_lang_bun() {
     local module_id="lang.bun"
     gtbi_require_contract "module:${module_id}" || return 1
 
+    if [[ "${DRY_RUN:-false}" != "true" ]] \
+        && declare -f gtbi_should_skip_module >/dev/null 2>&1 \
+        && gtbi_should_skip_module "$module_id"; then
+        log_info "lang.bun already installed; skipping"
+        return 0
+    fi
+
     if [[ "${DRY_RUN:-false}" = "true" ]]; then
         log_info "dry-run: verified installer: lang.bun"
     else
@@ -374,6 +381,13 @@ install_lang_uv() {
     local module_id="lang.uv"
     gtbi_require_contract "module:${module_id}" || return 1
 
+    if [[ "${DRY_RUN:-false}" != "true" ]] \
+        && declare -f gtbi_should_skip_module >/dev/null 2>&1 \
+        && gtbi_should_skip_module "$module_id"; then
+        log_info "lang.uv already installed; skipping"
+        return 0
+    fi
+
     if [[ "${DRY_RUN:-false}" = "true" ]]; then
         log_info "dry-run: verified installer: lang.uv"
     else
@@ -451,6 +465,13 @@ INSTALL_LANG_UV
 install_lang_rust() {
     local module_id="lang.rust"
     gtbi_require_contract "module:${module_id}" || return 1
+
+    if [[ "${DRY_RUN:-false}" != "true" ]] \
+        && declare -f gtbi_should_skip_module >/dev/null 2>&1 \
+        && gtbi_should_skip_module "$module_id"; then
+        log_info "lang.rust already installed; skipping"
+        return 0
+    fi
 
     if [[ "${DRY_RUN:-false}" = "true" ]]; then
         log_info "dry-run: verified installer: lang.rust"
@@ -541,6 +562,13 @@ install_lang_go() {
     local module_id="lang.go"
     gtbi_require_contract "module:${module_id}" || return 1
 
+    if [[ "${DRY_RUN:-false}" != "true" ]] \
+        && declare -f gtbi_should_skip_module >/dev/null 2>&1 \
+        && gtbi_should_skip_module "$module_id"; then
+        log_info "lang.go already installed; skipping"
+        return 0
+    fi
+
     if [[ "${DRY_RUN:-false}" = "true" ]]; then
         log_info "dry-run: install: apt-get install -yq golang-go (root)"
     else
@@ -573,6 +601,13 @@ INSTALL_LANG_GO
 install_lang_nvm() {
     local module_id="lang.nvm"
     gtbi_require_contract "module:${module_id}" || return 1
+
+    if [[ "${DRY_RUN:-false}" != "true" ]] \
+        && declare -f gtbi_should_skip_module >/dev/null 2>&1 \
+        && gtbi_should_skip_module "$module_id"; then
+        log_info "lang.nvm already installed; skipping"
+        return 0
+    fi
 
     if [[ "${DRY_RUN:-false}" = "true" ]]; then
         log_info "dry-run: verified installer: lang.nvm"

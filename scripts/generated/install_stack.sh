@@ -296,6 +296,13 @@ install_stack_dolt() {
     local module_id="stack.dolt"
     gtbi_require_contract "module:${module_id}" || return 1
 
+    if [[ "${DRY_RUN:-false}" != "true" ]] \
+        && declare -f gtbi_should_skip_module >/dev/null 2>&1 \
+        && gtbi_should_skip_module "$module_id"; then
+        log_info "stack.dolt already installed; skipping"
+        return 0
+    fi
+
     if [[ "${DRY_RUN:-false}" = "true" ]]; then
         log_info "dry-run: verified installer: stack.dolt"
     else
@@ -374,6 +381,13 @@ install_stack_bd() {
     local module_id="stack.bd"
     gtbi_require_contract "module:${module_id}" || return 1
 
+    if [[ "${DRY_RUN:-false}" != "true" ]] \
+        && declare -f gtbi_should_skip_module >/dev/null 2>&1 \
+        && gtbi_should_skip_module "$module_id"; then
+        log_info "stack.bd already installed; skipping"
+        return 0
+    fi
+
     if [[ "${DRY_RUN:-false}" = "true" ]]; then
         log_info "dry-run: install: case \"\$(uname -m)\" in (target_user)"
     else
@@ -423,6 +437,13 @@ INSTALL_STACK_BD
 install_stack_gastown() {
     local module_id="stack.gastown"
     gtbi_require_contract "module:${module_id}" || return 1
+
+    if [[ "${DRY_RUN:-false}" != "true" ]] \
+        && declare -f gtbi_should_skip_module >/dev/null 2>&1 \
+        && gtbi_should_skip_module "$module_id"; then
+        log_info "stack.gastown already installed; skipping"
+        return 0
+    fi
 
     if [[ "${DRY_RUN:-false}" = "true" ]]; then
         log_info "dry-run: install: case \"\$(uname -m)\" in (target_user)"

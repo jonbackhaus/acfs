@@ -296,6 +296,13 @@ install_network_tailscale() {
     local module_id="network.tailscale"
     gtbi_require_contract "module:${module_id}" || return 1
 
+    if [[ "${DRY_RUN:-false}" != "true" ]] \
+        && declare -f gtbi_should_skip_module >/dev/null 2>&1 \
+        && gtbi_should_skip_module "$module_id"; then
+        log_info "network.tailscale already installed; skipping"
+        return 0
+    fi
+
     if [[ "${DRY_RUN:-false}" = "true" ]]; then
         log_info "dry-run: install: case \"\$DISTRO_CODENAME\" in (root)"
     else
@@ -350,6 +357,13 @@ INSTALL_NETWORK_TAILSCALE
 install_network_ssh_keepalive() {
     local module_id="network.ssh_keepalive"
     gtbi_require_contract "module:${module_id}" || return 1
+
+    if [[ "${DRY_RUN:-false}" != "true" ]] \
+        && declare -f gtbi_should_skip_module >/dev/null 2>&1 \
+        && gtbi_should_skip_module "$module_id"; then
+        log_info "network.ssh_keepalive already installed; skipping"
+        return 0
+    fi
 
     if [[ "${DRY_RUN:-false}" = "true" ]]; then
         log_info "dry-run: install: if [[ ! -f /etc/ssh/sshd_config.gtbi.bak ]]; then (root)"

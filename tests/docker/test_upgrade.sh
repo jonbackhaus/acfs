@@ -117,6 +117,58 @@ else
     fail "Doctor failed after upgrade"
 fi
 
+# ── Phase 4: Module-level idempotency on resume (gtbi-d8b) ────────────────────
+# Simulate a module that was added in a newer release after the phase was recorded
+# complete: the stack phase is marked complete in state.json, but one of its
+# modules (gt / stack.gastown) is absent. A plain resume install (NO
+# --force-reinstall) must re-enter the completed phase, reinstall the missing
+# module, and NOT redundantly reinstall the modules that are already present.
+
+log "Phase 4: Module-level idempotency on resume (remove gt, then resume install)"
+
+GT_BIN="/home/ubuntu/.local/bin/gt"
+if [[ ! -x "$GT_BIN" ]]; then
+    fail "Expected gt at $GT_BIN after upgrade, but it is missing"
+fi
+
+# Confirm the stack phase is recorded complete (precondition for the bug).
+if ! jq -e '.completed_phases | index("stack") != null' "$STATE_FILE" >/dev/null 2>&1; then
+    fail "Precondition failed: 'stack' phase not marked complete in state.json"
+fi
+
+# Remove only gt, leaving dolt/bd in place.
+rm -f "$GT_BIN"
+log "Removed $GT_BIN; running resume install (no --force-reinstall)"
+
+if GTBI_CI=true bash "$REPO_ROOT/install.sh" \
+        --yes --skip-preflight --skip-ubuntu-upgrade --mode vibe \
+        > "${ARTIFACTS_DIR}/upgrade_resume_install.log" 2>&1; then
+    log "Resume install completed"
+else
+    log "Resume install failed — last 50 lines:"
+    tail -n 50 "${ARTIFACTS_DIR}/upgrade_resume_install.log"
+    fail "Resume install failed"
+fi
+
+# The missing module must now be installed.
+if [[ -x "$GT_BIN" ]] || su - ubuntu -c "zsh -ic 'command -v gt >/dev/null'" >/dev/null 2>&1; then
+    log "  [ok] gt reinstalled by resume"
+else
+    log "Resume install log tail:"
+    tail -n 60 "${ARTIFACTS_DIR}/upgrade_resume_install.log"
+    fail "gt was NOT reinstalled by resume install (module-level idempotency broken)"
+fi
+
+# Already-present modules must self-skip (not redundantly reinstall).
+if grep -q "stack.dolt already installed; skipping" "${ARTIFACTS_DIR}/upgrade_resume_install.log" \
+   && grep -q "stack.bd already installed; skipping" "${ARTIFACTS_DIR}/upgrade_resume_install.log"; then
+    log "  [ok] dolt and bd self-skipped (no redundant reinstall)"
+else
+    log "Resume install log tail:"
+    tail -n 60 "${ARTIFACTS_DIR}/upgrade_resume_install.log"
+    fail "Expected dolt/bd to self-skip on resume, but skip markers were not found"
+fi
+
 # ── Spot-check key binaries ───────────────────────────────────────────────────
 
 log "Spot-checking key binaries"
