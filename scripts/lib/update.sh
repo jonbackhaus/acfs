@@ -221,7 +221,7 @@ if [[ -f "$GTBI_REPO_ROOT/VERSION" ]]; then
     GTBI_VERSION="$(cat "$GTBI_REPO_ROOT/VERSION" 2>/dev/null || echo "$GTBI_VERSION")"
 fi
 
-# Build display version: v0.3.0+a7598d0 (with short commit hash when available)
+# Build display version: v0.4.0+a7598d0 (with short commit hash when available)
 _gtbi_short_hash=""
 if command -v git &>/dev/null && [[ -d "$GTBI_REPO_ROOT/.git" ]]; then
     _gtbi_short_hash=$(git -C "$GTBI_REPO_ROOT" rev-parse --short HEAD 2>/dev/null) || true
