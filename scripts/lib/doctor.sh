@@ -448,37 +448,6 @@ _gtbi_doctor_shell_has_active_assignment() {
     ' "$file" 2>/dev/null
 }
 
-_gtbi_doctor_claude_settings_has_command_hook() {
-    local settings_file="${1:-}"
-    local command_pattern="${2:-}"
-
-    [[ -n "$settings_file" && -n "$command_pattern" ]] || return 1
-    [[ -f "$settings_file" ]] || return 1
-    command -v jq >/dev/null 2>&1 || return 1
-
-    jq -e --arg pattern "$command_pattern" '
-      def command_hook_matches:
-        type == "object"
-        and ((.type? // "command") == "command")
-        and ((.command? // "") | strings | test($pattern));
-      def event_entry_matches:
-        if type == "object" and (.hooks? | type) == "array" then
-          any(.hooks[]?; command_hook_matches)
-        else
-          command_hook_matches
-        end;
-      def hook_event_entries:
-        if (.hooks? | type) == "object" then
-          .hooks | to_entries[]? | .value | arrays | .[]?
-        elif (.hooks? | type) == "array" then
-          .hooks[]?
-        else
-          empty
-        end;
-      any(hook_event_entries; event_entry_matches)
-    ' "$settings_file" >/dev/null 2>&1
-}
-
 _gtbi_doctor_source_first() {
     local rel_path="$1"
     local candidate=""
@@ -1989,39 +1958,7 @@ check_agents() {
     # Claude Code native install should be in ~/.local/bin, not bun/npm
     check_agent_path_conflicts
 
-    # Destructive Command Guard (DCG) — the current command-safety hook
-    check_dcg
-
     blank_line
-}
-
-# Check Destructive Command Guard (DCG) presence (bd-33vh.8)
-# DCG is GTBI's command-safety hook for Claude Code.
-# Considered healthy if the dcg binary is installed or its Claude hook is registered.
-check_dcg() {
-    local runtime_home dcg_path
-    runtime_home="$(doctor_runtime_home)"
-    dcg_path="$(doctor_binary_path dcg 2>/dev/null || true)"
-
-    local dcg_pattern='(^|[[:space:]/])dcg([[:space:]]|$)'
-    local hook_registered=false
-    local loc
-    for loc in "${runtime_home}/.claude/settings.json" "${runtime_home}/.config/claude/settings.json"; do
-        if _gtbi_doctor_claude_settings_has_command_hook "$loc" "$dcg_pattern"; then
-            hook_registered=true
-            break
-        fi
-    done
-
-    if [[ -n "$dcg_path" && "$hook_registered" == "true" ]]; then
-        check "agent.dcg" "DCG (Destructive Command Guard)" "pass" "binary + hook registered"
-    elif [[ -n "$dcg_path" ]]; then
-        check "agent.dcg" "DCG (Destructive Command Guard)" "pass" "binary installed ($dcg_path)"
-    elif [[ "$hook_registered" == "true" ]]; then
-        check "agent.dcg" "DCG (Destructive Command Guard)" "pass" "hook registered"
-    else
-        check "agent.dcg" "DCG (Destructive Command Guard)" "warn" "not installed (optional)"
-    fi
 }
 
 # Check for agent PATH conflicts (bead hi7)

@@ -1050,17 +1050,29 @@ INSTALL_GTBI_NIGHTLY
         fi
     fi
     if [[ "${DRY_RUN:-false}" = "true" ]]; then
-        log_info "dry-run: install: systemctl --user daemon-reload 2>/dev/null || true (target_user)"
+        log_info "dry-run: install: if ! command -v systemctl >/dev/null 2>&1 || [[ ! -d /run/systemd/system ]]; then (target_user)"
     else
         if ! run_as_target_shell <<'INSTALL_GTBI_NIGHTLY'
-# Reload systemd and enable the timer (no-op in Docker/CI)
-systemctl --user daemon-reload 2>/dev/null || true
-systemctl --user enable --now gtbi-nightly-update.timer 2>/dev/null || true
+# Enable the nightly timer.
+# No systemd present (e.g. Docker/CI) -> nothing to do, skip gracefully.
+if ! command -v systemctl >/dev/null 2>&1 || [[ ! -d /run/systemd/system ]]; then
+  echo "systemd not present; skipping nightly timer enable"
+else
+  # daemon-reload + start need a running user manager/bus; tolerate failure
+  # on headless hosts where the user bus is not reachable at install time.
+  systemctl --user daemon-reload 2>/dev/null || true
+  # SYSTEMD_OFFLINE=1 makes 'enable' create the wants symlink without a
+  # user bus, so is-enabled reports 'enabled' even on a fresh headless host
+  # (linger keeps the unit; it starts on next login/boot). This MUST succeed.
+  SYSTEMD_OFFLINE=1 systemctl --user enable gtbi-nightly-update.timer
+  # Best-effort immediate start; needs a live user manager, so tolerate failure.
+  systemctl --user start gtbi-nightly-update.timer 2>/dev/null || true
+fi
 INSTALL_GTBI_NIGHTLY
         then
-            log_warn "gtbi.nightly: install command failed: systemctl --user daemon-reload 2>/dev/null || true"
+            log_warn "gtbi.nightly: install command failed: if ! command -v systemctl >/dev/null 2>&1 || [[ ! -d /run/systemd/system ]]; then"
             if type -t record_skipped_tool >/dev/null 2>&1; then
-              record_skipped_tool "gtbi.nightly" "install command failed: systemctl --user daemon-reload 2>/dev/null || true"
+              record_skipped_tool "gtbi.nightly" "install command failed: if ! command -v systemctl >/dev/null 2>&1 || [[ ! -d /run/systemd/system ]]; then"
             elif type -t state_tool_skip >/dev/null 2>&1; then
               state_tool_skip "gtbi.nightly"
             fi
@@ -1070,10 +1082,10 @@ INSTALL_GTBI_NIGHTLY
 
     # Verify
     if [[ "${DRY_RUN:-false}" = "true" ]]; then
-        log_info "dry-run: verify (optional): systemctl --user is-enabled gtbi-nightly-update.timer 2>/dev/null (target_user)"
+        log_info "dry-run: verify (optional): SYSTEMD_OFFLINE=1 systemctl --user is-enabled gtbi-nightly-update.timer 2>/dev/null (target_user)"
     else
         if ! run_as_target_shell <<'INSTALL_GTBI_NIGHTLY'
-systemctl --user is-enabled gtbi-nightly-update.timer 2>/dev/null
+SYSTEMD_OFFLINE=1 systemctl --user is-enabled gtbi-nightly-update.timer 2>/dev/null
 INSTALL_GTBI_NIGHTLY
         then
             log_warn "Optional verify failed: gtbi.nightly"
