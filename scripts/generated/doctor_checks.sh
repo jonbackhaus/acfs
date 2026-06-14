@@ -344,7 +344,7 @@ declare -a MANIFEST_CHECKS=(
     "gtbi.workspace.2	Agent workspace with tmux session and project folder	gtbi_has_active_agents_alias() {\\n  local file=\"\${1:-}\"\\n  [[ -f \"\$file\" ]] || return 1\\n\\n  awk '\\n      /^[[:space:]]*#/ { next }\\n      /^[[:space:]]*alias[[:space:]]+agents=/ { found=1; exit }\\n      END { exit(found ? 0 : 1) }\\n  ' \"\$file\" 2>/dev/null\\n}\\n\\ngtbi_has_active_agents_alias ~/.zshrc.local || gtbi_has_active_agents_alias ~/.zshrc	optional	target_user"
     "gtbi.onboard	Onboarding TUI tutorial	onboard --help || command -v onboard	required	target_user"
     "gtbi.update	GTBI update command wrapper	gtbi-update --help || command -v gtbi-update	required	target_user"
-    "gtbi.nightly	Nightly auto-update timer (systemd)	systemctl --user is-enabled gtbi-nightly-update.timer 2>/dev/null	optional	target_user"
+    "gtbi.nightly	Nightly auto-update timer (systemd)	SYSTEMD_OFFLINE=1 systemctl --user is-enabled gtbi-nightly-update.timer 2>/dev/null	optional	target_user"
     "gtbi.doctor	GTBI doctor command for health checks	gtbi doctor --help || command -v gtbi	required	target_user"
 )
 

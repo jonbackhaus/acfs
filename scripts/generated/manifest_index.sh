@@ -6,7 +6,7 @@
 # ============================================================
 # Data-only manifest index. Safe to source.
 
-GTBI_MANIFEST_SHA256="036278bac74e1d68aa6901f538a328e3623bbca2b52d709368a221ca57c526e3"
+GTBI_MANIFEST_SHA256="5d255e20b288786ceb16b5bff525b85e4f02f271fb7acafe15086346fcde25b5"
 
 GTBI_MODULES_IN_ORDER=(
   "base.system"
@@ -298,7 +298,7 @@ declare -gA GTBI_MODULE_INSTALLED_CHECK=(
   ['stack.bd']="command -v bd"
   ['stack.gastown']="command -v gt"
   ['gtbi.workspace']="test -d /data/projects/my_first_project"
-  ['gtbi.nightly']="systemctl --user is-enabled gtbi-nightly-update.timer 2>/dev/null"
+  ['gtbi.nightly']="SYSTEMD_OFFLINE=1 systemctl --user is-enabled gtbi-nightly-update.timer 2>/dev/null"
 )
 
 declare -gA GTBI_MODULE_INSTALLED_CHECK_RUN_AS=(

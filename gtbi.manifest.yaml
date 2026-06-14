@@ -1368,7 +1368,10 @@ modules:
       - gtbi.update
     installed_check:
       run_as: target_user
-      command: "systemctl --user is-enabled gtbi-nightly-update.timer 2>/dev/null"
+      # SYSTEMD_OFFLINE=1 lets is-enabled read the unit state without a running
+      # user bus (true on a fresh headless host); still fails when systemd is
+      # absent entirely (Docker/CI), correctly marking the optional module unmet.
+      command: "SYSTEMD_OFFLINE=1 systemctl --user is-enabled gtbi-nightly-update.timer 2>/dev/null"
     install:
       - mkdir -p ~/.gtbi/scripts ~/.config/systemd/user
       - |
@@ -1415,11 +1418,23 @@ modules:
           curl "${CURL_ARGS[@]}" "${GTBI_RAW}/scripts/templates/gtbi-nightly-update.service" -o ~/.config/systemd/user/gtbi-nightly-update.service
         fi
       - |
-        # Reload systemd and enable the timer (no-op in Docker/CI)
-        systemctl --user daemon-reload 2>/dev/null || true
-        systemctl --user enable --now gtbi-nightly-update.timer 2>/dev/null || true
+        # Enable the nightly timer.
+        # No systemd present (e.g. Docker/CI) -> nothing to do, skip gracefully.
+        if ! command -v systemctl >/dev/null 2>&1 || [[ ! -d /run/systemd/system ]]; then
+          echo "systemd not present; skipping nightly timer enable"
+        else
+          # daemon-reload + start need a running user manager/bus; tolerate failure
+          # on headless hosts where the user bus is not reachable at install time.
+          systemctl --user daemon-reload 2>/dev/null || true
+          # SYSTEMD_OFFLINE=1 makes 'enable' create the wants symlink without a
+          # user bus, so is-enabled reports 'enabled' even on a fresh headless host
+          # (linger keeps the unit; it starts on next login/boot). This MUST succeed.
+          SYSTEMD_OFFLINE=1 systemctl --user enable gtbi-nightly-update.timer
+          # Best-effort immediate start; needs a live user manager, so tolerate failure.
+          systemctl --user start gtbi-nightly-update.timer 2>/dev/null || true
+        fi
     verify:
-      - systemctl --user is-enabled gtbi-nightly-update.timer 2>/dev/null || true
+      - SYSTEMD_OFFLINE=1 systemctl --user is-enabled gtbi-nightly-update.timer 2>/dev/null || true
     notes:
       - "Runs gtbi-update --yes --quiet --no-self-update daily at 4am with pre-flight health checks"
       - "Set GTBI_NIGHTLY_SELF_UPDATE=true in a user-unit override to opt into GTBI self-updates"
