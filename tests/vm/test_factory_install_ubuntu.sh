@@ -440,9 +440,12 @@ assert_target_user() {
     home="$(getent passwd ubuntu | cut -d: -f6)"
     [[ "$home" == "/home/ubuntu" ]] || fail "post.user_home" "expected /home/ubuntu, got ${home:-empty}"
     [[ -d /home/ubuntu ]] || fail "post.home_dir" "/home/ubuntu missing"
+    local home_owner=""
+    home_owner="$(stat -c '%U' "$home")"
+    [[ "$home_owner" == "ubuntu" ]] || fail "post.home_owner" "expected $home owned by ubuntu, got ${home_owner:-empty}"
     uid="$(id -u ubuntu)"
     [[ -d "/run/user/$uid" ]] || fail "post.runtime_dir" "/run/user/$uid missing"
-    pass "post.user" "ubuntu user, home, and runtime dir exist"
+    pass "post.user" "ubuntu user, home (owned by ubuntu), and runtime dir exist"
 }
 
 assert_ssh_key_merge() {
