@@ -52,7 +52,7 @@ export DEBCONF_NONINTERACTIVE_SEEN=true
 # ============================================================
 # Configuration
 # ============================================================
-GTBI_VERSION="0.3.0"
+GTBI_VERSION="0.4.0"
 # Allow fork installations by overriding these via environment variables
 GTBI_REPO_OWNER="${GTBI_REPO_OWNER:-jonbackhaus}"
 GTBI_REPO_NAME="${GTBI_REPO_NAME:-gtbi}"

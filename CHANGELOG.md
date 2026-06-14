@@ -8,6 +8,28 @@ Each version links to its GitHub Release (where one exists) or to the tag compar
 
 ---
 
+## [v0.4.0](https://github.com/jonbackhaus/gtbi/releases/tag/v0.4.0) -- 2026-06-14
+
+> Removes the legacy multi-agent tool ecosystem (swarm/services/agent-mail/cloud-db), fixes upgrade installs to be module-level, and overhauls onboarding/docs to match the lean stack. [Compare with v0.3.0](https://github.com/jonbackhaus/gtbi/compare/v0.3.0...v0.4.0).
+
+### Removed
+
+- **Legacy multi-agent command surfaces** -- `gtbi swarm` (+ all `swarm-*`/`coordinate`), the Agent Mail / CM / CASS half of `gtbi services`, and `provisioning-packet`; ~22 swarm/services libs, their completions, the `gtbi info` swarm panel, support-bundle capture, and 5 ops docs. All were built on tools GTBI no longer installs (~16k lines) ([`ec78f048`](https://github.com/jonbackhaus/gtbi/commit/ec78f048), [#35](https://github.com/jonbackhaus/gtbi/pull/35))
+- **Stale cloud/db/agent-mail/ntm code** removed from the generator, `install.sh`, `update.sh`, `doctor.sh`, and drift checks; orphaned `install_db.sh`/`install_cloud.sh` deleted; manifest test suite restored to **0 failures** ([`20541088`](https://github.com/jonbackhaus/gtbi/commit/20541088), [#28](https://github.com/jonbackhaus/gtbi/pull/28))
+- **`--format toon` / `tru`** output path; OBE onboarding lessons, `docs/tools/` per-tool docs, web/Vercel ops docs, and orphan tests/workflows ([#36](https://github.com/jonbackhaus/gtbi/pull/36), [#29](https://github.com/jonbackhaus/gtbi/pull/29), [#33](https://github.com/jonbackhaus/gtbi/pull/33), [#32](https://github.com/jonbackhaus/gtbi/pull/32), [#30](https://github.com/jonbackhaus/gtbi/pull/30))
+
+### Fixed
+
+- **Module-level install idempotency** -- re-running the installer (or upgrading) now installs newly-added modules even when their phase was previously completed; already-present modules self-skip via their `installed_check`. Fixes upgrades silently missing new tools (e.g. Gastown on a v0.2.0 → latest re-run) ([`9a2c5124`](https://github.com/jonbackhaus/gtbi/commit/9a2c5124), [#38](https://github.com/jonbackhaus/gtbi/pull/38))
+- **`cloud_db` phase-model reconciliation** -- removed the dangling `cloud_db` phase that desynced `state.sh` from `install.sh`'s 8-phase sequence; fixed an install progress-total off-by-one ([`f01df7e9`](https://github.com/jonbackhaus/gtbi/commit/f01df7e9), [#34](https://github.com/jonbackhaus/gtbi/pull/34))
+
+### Changed
+
+- **README** tool/stack/phase sections rewritten to match the lean manifest ([#27](https://github.com/jonbackhaus/gtbi/pull/27))
+- **Onboarding** rewritten for the current stack -- Go `bd`, Dolt, and Gastown lessons replace the removed-tool curriculum ([#31](https://github.com/jonbackhaus/gtbi/pull/31))
+
+---
+
 ## [v0.3.0](https://github.com/jonbackhaus/gtbi/releases/tag/v0.3.0) -- 2026-06-13
 
 > Adds Gastown to the agent stack, completes the rename to GTBI, hardens CI with a required gate, and removes the unused web app. [Compare with v0.2.0](https://github.com/jonbackhaus/gtbi/compare/v0.2.0...v0.3.0).
