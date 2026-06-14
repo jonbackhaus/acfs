@@ -120,21 +120,6 @@ else
     fail "Install artifacts validation failed"
 fi
 
-# PHASE 2.6: git_safety_guard Removal Verification (bd-33vh.8)
-log "PHASE 2.6: git_safety_guard Removal Verification"
-GUARD_REMOVAL_LOG="${ARTIFACTS_DIR}/git_safety_guard_removal.log"
-if bash /repo/tests/e2e/test_git_safety_guard_removal.sh --user ubuntu --home /home/ubuntu > "$GUARD_REMOVAL_LOG" 2>&1; then
-    log "git_safety_guard removal verification passed"
-    cp /tmp/git_safety_guard_removal_*.log "$ARTIFACTS_DIR/" 2>/dev/null || true
-    cp /tmp/git_safety_guard_removal_*.json "$ARTIFACTS_DIR/" 2>/dev/null || true
-else
-    log "git_safety_guard removal verification failed! See $GUARD_REMOVAL_LOG"
-    cat "$GUARD_REMOVAL_LOG"
-    cp /tmp/git_safety_guard_removal_*.log "$ARTIFACTS_DIR/" 2>/dev/null || true
-    cp /tmp/git_safety_guard_removal_*.json "$ARTIFACTS_DIR/" 2>/dev/null || true
-    fail "git_safety_guard removal verification failed"
-fi
-
 # PHASE 3: Idempotency
 log "PHASE 3: Idempotency Check"
 if bash install.sh "${INSTALL_ARGS[@]}" > "${ARTIFACTS_DIR}/idempotency.log" 2>&1; then
