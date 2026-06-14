@@ -24,7 +24,7 @@ modules:
     tags: [critical]
     installed_check:
       run_as: current
-      command: "command -v curl && command -v git && command -v jq"
+      command: "command -v curl && command -v git && command -v jq && command -v unzip && command -v xz && command -v gcc && command -v gpg && command -v zstd"
     install:
       - apt-get update -yq
       - apt-get install -yq curl git ca-certificates unzip tar xz-utils jq build-essential gnupg lsb-release zstd
@@ -439,7 +439,7 @@ modules:
       - base.system
     installed_check:
       run_as: current
-      command: "command -v rg && command -v tmux && command -v fzf"
+      command: "command -v rg && command -v tmux && command -v fzf && command -v direnv && command -v gh && command -v git-lfs && command -v lsof && command -v dig && command -v nc && command -v strace && command -v rsync && command -v sqlite3"
     install:
       - apt-get install -yq ripgrep tmux fzf direnv jq gh git-lfs lsof dnsutils netcat-openbsd strace rsync sqlite3
       - apt-get install -yq lsd || true

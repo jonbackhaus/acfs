@@ -6,7 +6,7 @@
 # ============================================================
 # Data-only manifest index. Safe to source.
 
-GTBI_MANIFEST_SHA256="5e6ee0df4e2035f7b80c0de6d2ef20446ef3880b4312437ba763c7da28c69ea4"
+GTBI_MANIFEST_SHA256="036278bac74e1d68aa6901f538a328e3623bbca2b52d709368a221ca57c526e3"
 
 GTBI_MODULES_IN_ORDER=(
   "base.system"
@@ -273,11 +273,11 @@ declare -gA GTBI_MODULE_DESC=(
 )
 
 declare -gA GTBI_MODULE_INSTALLED_CHECK=(
-  ['base.system']="command -v curl && command -v git && command -v jq"
+  ['base.system']="command -v curl && command -v git && command -v jq && command -v unzip && command -v xz && command -v gcc && command -v gpg && command -v zstd"
   ['base.filesystem']="test -d /data/projects && test -d ~/.gtbi"
   ['shell.zsh']="command -v zsh"
   ['shell.omz']="test -d ~/.oh-my-zsh && test -f ~/.gtbi/zsh/gtbi.zshrc"
-  ['cli.modern']="command -v rg && command -v tmux && command -v fzf"
+  ['cli.modern']="command -v rg && command -v tmux && command -v fzf && command -v direnv && command -v gh && command -v git-lfs && command -v lsof && command -v dig && command -v nc && command -v strace && command -v rsync && command -v sqlite3"
   ['tools.lazygit']="command -v lazygit"
   ['tools.lazydocker']="command -v lazydocker"
   ['network.tailscale']="command -v tailscale"
