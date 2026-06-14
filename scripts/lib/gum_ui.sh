@@ -225,6 +225,41 @@ gum_confirm() {
     fi
 }
 
+# Text input prompt
+# Usage: gum_input "Prompt label" ["placeholder/default"]
+# Echoes the entered value on stdout. Returns non-zero (without blocking) when
+# no TTY is available so callers can skip interactive collection cleanly.
+gum_input() {
+    local prompt="$1"
+    local placeholder="${2:-}"
+
+    if [[ "$HAS_GUM" == "true" ]]; then
+        if [[ -r /dev/tty && -w /dev/tty ]]; then
+            gum input \
+                --prompt.foreground "$GTBI_PRIMARY" \
+                --prompt "$prompt " \
+                --placeholder "$placeholder" < /dev/tty
+        elif [[ -t 0 && -t 1 ]]; then
+            gum input \
+                --prompt.foreground "$GTBI_PRIMARY" \
+                --prompt "$prompt " \
+                --placeholder "$placeholder"
+        else
+            return 1
+        fi
+    else
+        local response=""
+        if [[ -t 0 ]]; then
+            read -r -p "$prompt " response
+        elif [[ -r /dev/tty ]]; then
+            read -r -p "$prompt " response < /dev/tty
+        else
+            return 1
+        fi
+        printf '%s\n' "$response"
+    fi
+}
+
 # Choice selection
 gum_choose() {
     local prompt="$1"

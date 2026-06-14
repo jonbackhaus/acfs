@@ -302,6 +302,9 @@ jobs:
       - name: Run idempotency tests
         run: bash scripts/lib/test_idempotency.sh
 
+      - name: Run identity tests
+        run: bash scripts/lib/test_identity.sh
+
       - name: Run zsh library tests
         run: bash scripts/lib/test_zsh.sh
 

@@ -11,6 +11,16 @@ finalize() {
     set_phase "finalize" "Final Wiring"
     log_step "9/9" "Finalizing installation..."
 
+    # Source UI + identity helpers (not sourced by install.sh during the run).
+    if ! declare -f gum_input >/dev/null 2>&1 && [[ -f "${GTBI_LIB_DIR:-}/gum_ui.sh" ]]; then
+        # shellcheck source=scripts/lib/gum_ui.sh
+        source "$GTBI_LIB_DIR/gum_ui.sh"
+    fi
+    if ! declare -f configure_user_identity >/dev/null 2>&1 && [[ -f "${GTBI_LIB_DIR:-}/identity.sh" ]]; then
+        # shellcheck source=scripts/lib/identity.sh
+        source "$GTBI_LIB_DIR/identity.sh"
+    fi
+
     if gtbi_use_generated_category "gtbi"; then
         log_detail "Using generated installers for gtbi (phase 10)"
         gtbi_run_generated_category_phase "gtbi" "10" || return 1
@@ -74,6 +84,7 @@ finalize() {
     try_step "Installing logging.sh" install_asset "scripts/lib/logging.sh" "$GTBI_HOME/scripts/lib/logging.sh" || return 1
     try_step "Installing output.sh" install_asset "scripts/lib/output.sh" "$GTBI_HOME/scripts/lib/output.sh" || return 1
     try_step "Installing gum_ui.sh" install_asset "scripts/lib/gum_ui.sh" "$GTBI_HOME/scripts/lib/gum_ui.sh" || return 1
+    try_step "Installing identity.sh" install_asset "scripts/lib/identity.sh" "$GTBI_HOME/scripts/lib/identity.sh" || return 1
     try_step "Installing progress.sh" install_asset "scripts/lib/progress.sh" "$GTBI_HOME/scripts/lib/progress.sh" || return 1
     try_step "Installing install_helpers.sh" install_asset "scripts/lib/install_helpers.sh" "$GTBI_HOME/scripts/lib/install_helpers.sh" || return 1
     try_step "Installing stack.sh" install_asset "scripts/lib/stack.sh" "$GTBI_HOME/scripts/lib/stack.sh" || return 1
@@ -315,6 +326,10 @@ GEMINI_TRUST_EOF
 EOF
         $SUDO chown "$TARGET_USER:$TARGET_USER" "$GTBI_STATE_FILE"
     fi
+
+    # Configure Git/Dolt user identity (idempotent; non-fatal; never blocks).
+    # Placed after Dolt is installed (stack phase). Skips cleanly with no TTY/--yes.
+    try_step "Configuring Git/Dolt identity" configure_user_identity || true
 
     log_success "Installation complete!"
 }
