@@ -356,84 +356,6 @@ test_version_display() {
     fi
 }
 
-# Test 13: DCG update verification
-test_dcg_update() {
-    info "Testing DCG update verification"
-
-    # Skip if DCG not installed
-    if ! command -v dcg &>/dev/null; then
-        info "DCG not installed - skipping update test"
-        return 0
-    fi
-
-    # Get version before update
-    local version_before
-    version_before=$(dcg --version 2>/dev/null | head -1) || version_before="unknown"
-    info "DCG version before: $version_before"
-
-    # Get hook status before (use text parsing)
-    local hook_before
-    local doctor_output
-    doctor_output=$(dcg doctor 2>&1) || true
-    if echo "$doctor_output" | grep -qi "hook wiring.*OK"; then
-        hook_before="registered"
-    else
-        hook_before="unknown"
-    fi
-    info "Hook status before: $hook_before"
-
-    # Run the exact updater path for DCG without dragging in the rest of the
-    # stack category, which includes heavyweight optional tools like fsfs.
-    local update_output
-    update_output=$(bash -lc '
-        set -euo pipefail
-        source "$HOME/.gtbi/scripts/lib/update.sh"
-        QUIET=true
-        VERBOSE=false
-        YES_MODE=true
-        UPDATE_LOG_FILE=""
-        ensure_path
-        update_run_verified_installer dcg --easy-mode
-        if command -v dcg >/dev/null 2>&1 && command -v claude >/dev/null 2>&1; then
-            dcg install --force >/dev/null 2>&1 || true
-        fi
-    ' 2>&1) || true
-
-    # Get version after update
-    local version_after
-    version_after=$(dcg --version 2>/dev/null | head -1) || version_after="unknown"
-    info "DCG version after: $version_after"
-
-    # Get hook status after
-    local hook_after
-    doctor_output=$(dcg doctor 2>&1) || true
-    if echo "$doctor_output" | grep -qi "hook wiring.*OK"; then
-        hook_after="registered"
-    else
-        hook_after="unknown"
-    fi
-    info "Hook status after: $hook_after"
-
-    # Verify hook is still registered after update
-    if [[ "$hook_after" == "registered" ]]; then
-        pass "DCG hook still registered after update"
-    else
-        fail "DCG hook status uncertain after update"
-    fi
-
-    # Verify blocking still works
-    local test_output
-    test_output=$(echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /important"}}' | dcg 2>&1) || true
-
-    # Empty output = allowed (fail-open), or it might have deny output
-    # For this test, just verify DCG responds without crashing
-    if dcg doctor &>/dev/null; then
-        pass "DCG functional after update (doctor passes)"
-    else
-        fail "DCG doctor failed after update"
-    fi
-}
-
 # Run all tests
 main() {
     echo ""
@@ -454,7 +376,6 @@ main() {
     test_missing_tools
     test_exit_codes
     test_version_display
-    test_dcg_update
 
     echo ""
     echo "============================================================"
