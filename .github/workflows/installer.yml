@@ -385,6 +385,76 @@ jobs:
           su - ubuntu -c "zsh -ic 'codex --version'"
           su - ubuntu -c "zsh -ic 'gemini --version'"
 
+  fresh-host-install:
+    name: Fresh-host Install (bare container)
+    needs: changes
+    if: ${{ needs.changes.outputs.relevant == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container:
+      image: ubuntu:24.04
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      # Minimal "proxy tools" ONLY: curl git jq ca-certificates sudo. This is
+      # the masking condition — curl/git/jq present makes base.system's proxy
+      # installed_check pass, so without the bundle fix the apt bundle is
+      # skipped. Deliberately do NOT pre-install unzip/xz-utils/gnupg/
+      # build-essential/zstd/etc. — GTBI's own modules are responsible for those.
+      - name: Install minimal proxy prerequisites
+        working-directory: /
+        run: |
+          apt-get update
+          apt-get install -y curl git jq ca-certificates sudo
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Orphaned-home simulation (gtbi-9z5 guard): a root-owned /home/ubuntu
+      # exists with NO ubuntu user. The installer must create the user and
+      # adopt+chown the pre-existing home directory.
+      - name: Simulate orphaned root-owned home
+        run: |
+          mkdir -p /home/ubuntu
+          chown root:root /home/ubuntu
+          echo "Before install: /home/ubuntu owned by $(stat -c '%U:%G' /home/ubuntu)"
+
+      - name: Run installer (fresh host)
+        run: |
+          GTBI_CI=true bash install.sh --yes --skip-preflight --skip-ubuntu-upgrade --mode vibe
+
+      - name: Assert home ownership adopted (gtbi-9z5)
+        run: |
+          owner="$(stat -c '%U' /home/ubuntu)"
+          echo "After install: /home/ubuntu owned by $owner"
+          if [ "$owner" != "ubuntu" ]; then
+            echo "::error::/home/ubuntu is owned by '$owner', expected 'ubuntu' (gtbi-9z5 regression)"
+            exit 1
+          fi
+
+      - name: Assert previously-skipped packages present (gtbi-enr)
+        run: |
+          # These come from base.system's apt bundle. Before the gtbi-enr fix
+          # the bundle was wrongly skipped on hosts that already had the proxy
+          # tools (curl/git/jq), so these would be missing on a fresh host.
+          su - ubuntu -c "zsh -ic 'command -v unzip'"
+          su - ubuntu -c "zsh -ic 'sqlite3 --version'"
+          su - ubuntu -c "zsh -ic 'gcc --version'"
+          su - ubuntu -c "zsh -ic 'zstd --version'"
+
+      - name: Verify stack + runtimes
+        run: |
+          su - ubuntu -c "zsh -ic 'gt version'"
+          su - ubuntu -c "zsh -ic 'bd --version'"
+          su - ubuntu -c "zsh -ic 'dolt version'"
+          su - ubuntu -c "zsh -ic 'bun --version'"
+
+      - name: Run doctor (informational; systemd warns are not fatal)
+        run: |
+          # Docker has no systemd, so linger/nightly-timer/doctor systemd warns
+          # are expected here. Do not fail on them — that's the QEMU factory's job.
+          su - ubuntu -c "GTBI_DOCTOR_CI=true zsh -ic 'gtbi doctor'" || true
+
   e2e-curlbash-bootstrap:
     name: E2E curl|bash Bootstrap
     needs: changes
@@ -508,6 +578,7 @@ jobs:
       - fresh-root-bootstrap-regression
       - selection-tests
       - test-installer
+      - fresh-host-install
       - e2e-curlbash-bootstrap
       - e2e-resume-after-failure
       - e2e-upgrade-and-repair
