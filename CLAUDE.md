@@ -99,7 +99,8 @@ bd close <id>         # Complete work
 
 - **Feature branches**: `git checkout -b fix/<topic>` or `feat/<topic>` before any code changes
 - **Worktrees for sub-agents**: Use `git worktree add` to give each sub-agent an isolated copy of the repo — prevents concurrent edits from colliding on the same working tree
-- **Worktree cleanup**: Remove worktrees after merging — `git worktree remove <path> && git branch -d <branch>`; or `git worktree prune` to clean up stale entries
+- **Sub-agents: never `git checkout -b` against the shared checkout**: A worktree starts on its own `worktree-agent-*` branch. If a sub-agent `cd`s out of its worktree (a bare `cd` in a compound command can do this) and then runs `git checkout -b <branch>`, it switches the **shared/parent** checkout onto the new branch and commits there — contaminating the main working tree and leaving stale local branches. Sub-agents must stay inside their worktree dir and create the branch there (`git switch -c <branch>` from within the worktree), or target it explicitly with `git -C "$WORKTREE" switch -c <branch>`. Prefer `git -C "$WORKTREE" …` for all git ops; if a `git checkout -b` shows up in the shared tree, recover with `git checkout main`.
+- **Worktree cleanup**: Remove worktrees after merging — `git worktree remove <path> && git branch -d <branch>`; or `git worktree prune` to clean up stale entries. Also delete the now-merged local branch (`git branch -D <branch>`) — squash-merged branches aren't recognized by `git branch -d` and otherwise pile up across a long session.
 - **Commit often**: Small, atomic commits are easier to bisect and revert; don't batch unrelated changes
 - **Push when complete**: Work is not done until `git push` succeeds (see Definition of Done above)
 - **PRs for non-trivial changes**: Any code or script change → open a PR. Docs/CLAUDE.md-only edits may go direct to `main`.
