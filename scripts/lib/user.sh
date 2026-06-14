@@ -364,6 +364,32 @@ ensure_user() {
     if getent group docker &>/dev/null; then
         $SUDO usermod -aG docker "$target" 2>/dev/null || true
     fi
+
+    # Enable lingering so the user's systemd --user units (e.g. the nightly
+    # update timer) run without an active login session, and so /run/user/<uid>
+    # exists for `systemctl --user`. Non-fatal: containers without systemd
+    # (Docker CI) skip it gracefully.
+    enable_user_linger "$target" || true
+}
+
+# Enable systemd user lingering for the target user.
+# Required for `systemctl --user` timers to run on headless hosts and to
+# create /run/user/<uid>. No-ops cleanly when systemd/loginctl is unavailable.
+enable_user_linger() {
+    local target="${1:-$TARGET_USER}"
+
+    user_require_valid_target_user "$target"
+
+    if ! command -v loginctl >/dev/null 2>&1; then
+        log_detail "loginctl unavailable; skipping user lingering for $target"
+        return 0
+    fi
+
+    log_detail "Enabling user lingering for $target"
+    if ! $SUDO loginctl enable-linger "$target" 2>/dev/null; then
+        log_warn "loginctl enable-linger failed for $target (--user timers will need an active session)"
+        return 0
+    fi
 }
 
 # Enable passwordless sudo for target user
