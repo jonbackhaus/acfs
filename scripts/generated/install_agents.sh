@@ -296,6 +296,13 @@ install_agents_claude() {
     local module_id="agents.claude"
     gtbi_require_contract "module:${module_id}" || return 1
 
+    if [[ "${DRY_RUN:-false}" != "true" ]] \
+        && declare -f gtbi_should_skip_module >/dev/null 2>&1 \
+        && gtbi_should_skip_module "$module_id"; then
+        log_info "agents.claude already installed; skipping"
+        return 0
+    fi
+
     if [[ "${DRY_RUN:-false}" = "true" ]]; then
         log_info "dry-run: verified installer: agents.claude"
     else
@@ -563,6 +570,13 @@ install_agents_codex() {
     local module_id="agents.codex"
     gtbi_require_contract "module:${module_id}" || return 1
 
+    if [[ "${DRY_RUN:-false}" != "true" ]] \
+        && declare -f gtbi_should_skip_module >/dev/null 2>&1 \
+        && gtbi_should_skip_module "$module_id"; then
+        log_info "agents.codex already installed; skipping"
+        return 0
+    fi
+
     if [[ "${DRY_RUN:-false}" = "true" ]]; then
         log_info "dry-run: install: if ! ~/.bun/bin/bun install -g --trust @openai/codex@latest; then (target_user)"
     else
@@ -777,6 +791,13 @@ INSTALL_AGENTS_CODEX
 install_agents_gemini() {
     local module_id="agents.gemini"
     gtbi_require_contract "module:${module_id}" || return 1
+
+    if [[ "${DRY_RUN:-false}" != "true" ]] \
+        && declare -f gtbi_should_skip_module >/dev/null 2>&1 \
+        && gtbi_should_skip_module "$module_id"; then
+        log_info "agents.gemini already installed; skipping"
+        return 0
+    fi
 
     if [[ "${DRY_RUN:-false}" = "true" ]]; then
         log_info "dry-run: install: ~/.bun/bin/bun install -g --trust @google/gemini-cli@latest (target_user)"
@@ -1065,6 +1086,13 @@ INSTALL_AGENTS_GEMINI
 install_agents_opencode() {
     local module_id="agents.opencode"
     gtbi_require_contract "module:${module_id}" || return 1
+
+    if [[ "${DRY_RUN:-false}" != "true" ]] \
+        && declare -f gtbi_should_skip_module >/dev/null 2>&1 \
+        && gtbi_should_skip_module "$module_id"; then
+        log_info "agents.opencode already installed; skipping"
+        return 0
+    fi
 
     if [[ "${DRY_RUN:-false}" = "true" ]]; then
         log_info "dry-run: verified installer: agents.opencode"

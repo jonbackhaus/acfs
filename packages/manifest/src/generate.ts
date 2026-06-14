@@ -1689,6 +1689,21 @@ function generateCategoryScript(manifest: Manifest, category: ModuleCategory): s
     lines.push('    gtbi_require_contract "module:${module_id}" || return 1');
     lines.push('');
 
+    // Module-level idempotency guard (gtbi-d8b): if the module is already
+    // installed (per its installed_check) skip reinstalling it, unless
+    // --force-reinstall is active. gtbi_should_skip_module already respects
+    // GTBI_FORCE_REINSTALL and the installed_check run_as context. Skipped in
+    // dry-run so the dry-run path still reports the install steps.
+    if (module.installed_check?.command) {
+      lines.push('    if [[ "${DRY_RUN:-false}" != "true" ]] \\');
+      lines.push('        && declare -f gtbi_should_skip_module >/dev/null 2>&1 \\');
+      lines.push('        && gtbi_should_skip_module "$module_id"; then');
+      lines.push(`        log_info "${module.id} already installed; skipping"`);
+      lines.push('        return 0');
+      lines.push('    fi');
+      lines.push('');
+    }
+
     // Install commands
     lines.push(...generateInstallCommands(module));
     lines.push('');

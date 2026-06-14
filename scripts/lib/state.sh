@@ -2154,6 +2154,53 @@ state_has_module_selection() {
     return 1
 }
 
+# gtbi-d8b: Determine whether a completed phase contains a module that is not
+# actually installed (e.g. a module added in a newer release after this phase was
+# recorded complete). Module-level idempotency requires re-running such a phase so
+# the missing module installs; already-present modules self-skip via their generated
+# install guard.
+#
+# Returns 0 (true, a module is missing) only when we can positively confirm an
+# absent module via its installed_check. Falls back to "no missing module" (return 1)
+# whenever the generated maps or the installed-check runner are unavailable, so an
+# environment without the index keeps the historical fast-resume behavior.
+#
+# Modules without an installed_check cannot be verified, so they never force a re-run.
+state_phase_has_missing_module() {
+    local phase_id="$1"
+    local module=""
+    local module_phase_num=""
+    local module_phase_name=""
+
+    # Need the module->phase map and an installed-check runner; otherwise we
+    # cannot tell what belongs to this phase or whether it is present.
+    if ! declare -p GTBI_MODULE_PHASE >/dev/null 2>&1; then
+        return 1
+    fi
+    if ! declare -p GTBI_MODULE_INSTALLED_CHECK >/dev/null 2>&1; then
+        return 1
+    fi
+    if ! declare -f gtbi_module_is_installed >/dev/null 2>&1; then
+        return 1
+    fi
+
+    for module in "${!GTBI_MODULE_PHASE[@]}"; do
+        module_phase_num="${GTBI_MODULE_PHASE[$module]:-}"
+        module_phase_name="$(state_manifest_phase_to_id "$module_phase_num" 2>/dev/null || true)"
+        [[ "$module_phase_name" == "$phase_id" ]] || continue
+
+        # Only modules with an installed_check can be verified.
+        [[ -n "${GTBI_MODULE_INSTALLED_CHECK[$module]:-}" ]] || continue
+
+        # Missing module found -> phase must re-run.
+        if ! gtbi_module_is_installed "$module"; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
 state_should_skip_phase() {
     local phase_id="$1"
 
@@ -2163,6 +2210,13 @@ state_should_skip_phase() {
         # completed, the phase must re-run so the module installer can execute.
         # Check whether any requested module belongs to this phase.
         if state_has_module_selection && state_selection_includes_phase "$phase_id"; then
+            return 1
+        fi
+
+        # gtbi-d8b: A completed phase may be missing a module that was added in a
+        # newer release. Re-enter the phase if any of its modules is absent; the
+        # present ones self-skip via their generated install guard.
+        if state_phase_has_missing_module "$phase_id"; then
             return 1
         fi
 

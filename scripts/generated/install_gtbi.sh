@@ -296,6 +296,13 @@ install_gtbi_workspace() {
     local module_id="gtbi.workspace"
     gtbi_require_contract "module:${module_id}" || return 1
 
+    if [[ "${DRY_RUN:-false}" != "true" ]] \
+        && declare -f gtbi_should_skip_module >/dev/null 2>&1 \
+        && gtbi_should_skip_module "$module_id"; then
+        log_info "gtbi.workspace already installed; skipping"
+        return 0
+    fi
+
     if [[ "${DRY_RUN:-false}" = "true" ]]; then
         log_info "dry-run: install: mkdir -p /data/projects/my_first_project (target_user)"
     else
@@ -933,6 +940,13 @@ INSTALL_GTBI_UPDATE
 install_gtbi_nightly() {
     local module_id="gtbi.nightly"
     gtbi_require_contract "module:${module_id}" || return 1
+
+    if [[ "${DRY_RUN:-false}" != "true" ]] \
+        && declare -f gtbi_should_skip_module >/dev/null 2>&1 \
+        && gtbi_should_skip_module "$module_id"; then
+        log_info "gtbi.nightly already installed; skipping"
+        return 0
+    fi
 
     if [[ "${DRY_RUN:-false}" = "true" ]]; then
         log_info "dry-run: install: mkdir -p ~/.gtbi/scripts ~/.config/systemd/user (target_user)"

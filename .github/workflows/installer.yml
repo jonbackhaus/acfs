@@ -299,6 +299,9 @@ jobs:
       - name: Run install helpers tests
         run: bash scripts/lib/test_install_helpers.sh
 
+      - name: Run idempotency tests
+        run: bash scripts/lib/test_idempotency.sh
+
       - name: Run zsh library tests
         run: bash scripts/lib/test_zsh.sh
 

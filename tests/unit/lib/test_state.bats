@@ -329,6 +329,86 @@ EOF
     assert_success
 }
 
+# gtbi-d8b: module-level idempotency. A completed phase must re-run when one of
+# its modules is absent (e.g. added in a newer release), and stay skipped when all
+# of its modules are present.
+@test "state: completed phase reruns when a module is missing (gtbi-d8b)" {
+    state_init
+    state_phase_complete "stack"
+
+    ONLY_MODULES=()
+    ONLY_PHASES=()
+
+    # Mock the generated maps: two stack-phase (9) modules, both with checks.
+    declare -gA GTBI_MODULE_PHASE=( [stack.bd]="9" [stack.gastown]="9" )
+    declare -gA GTBI_MODULE_INSTALLED_CHECK=( [stack.bd]="command -v bd" [stack.gastown]="command -v gt" )
+
+    # Mock the installed-check runner: bd present, gastown absent.
+    gtbi_module_is_installed() {
+        case "$1" in
+            stack.bd) return 0 ;;
+            *) return 1 ;;
+        esac
+    }
+
+    run state_should_skip_phase "stack"
+    assert_failure  # do NOT skip — gastown is missing
+}
+
+@test "state: completed phase stays skipped when all modules present (gtbi-d8b)" {
+    state_init
+    state_phase_complete "stack"
+
+    ONLY_MODULES=()
+    ONLY_PHASES=()
+
+    declare -gA GTBI_MODULE_PHASE=( [stack.bd]="9" [stack.gastown]="9" )
+    declare -gA GTBI_MODULE_INSTALLED_CHECK=( [stack.bd]="command -v bd" [stack.gastown]="command -v gt" )
+
+    gtbi_module_is_installed() { return 0; }  # everything present
+
+    run state_should_skip_phase "stack"
+    assert_success  # fast resume preserved — skip
+}
+
+@test "state: completed phase ignores modules without installed_check (gtbi-d8b)" {
+    state_init
+    state_phase_complete "stack"
+
+    ONLY_MODULES=()
+    ONLY_PHASES=()
+
+    # gastown has no installed_check entry -> cannot be verified -> must not force a re-run.
+    declare -gA GTBI_MODULE_PHASE=( [stack.bd]="9" [stack.gastown]="9" )
+    declare -gA GTBI_MODULE_INSTALLED_CHECK=( [stack.bd]="command -v bd" )
+
+    # bd present; gastown would report absent but has no check, so it is ignored.
+    gtbi_module_is_installed() {
+        case "$1" in
+            stack.bd) return 0 ;;
+            *) return 1 ;;
+        esac
+    }
+
+    run state_should_skip_phase "stack"
+    assert_success  # skip — no verifiable module is missing
+}
+
+@test "state: completed phase skipped when index maps unavailable (gtbi-d8b)" {
+    state_init
+    state_phase_complete "stack"
+
+    ONLY_MODULES=()
+    ONLY_PHASES=()
+
+    # No GTBI_MODULE_PHASE / runner -> fall back to historical fast-resume behavior.
+    unset GTBI_MODULE_PHASE 2>/dev/null || true
+    unset -f gtbi_module_is_installed 2>/dev/null || true
+
+    run state_should_skip_phase "stack"
+    assert_success
+}
+
 @test "state: update atomic" {
     state_init
     
