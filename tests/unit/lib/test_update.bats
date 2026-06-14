@@ -446,17 +446,6 @@ EOF
     [[ "$output" -ge 10 ]] || fail "expected explicit GTBI_STATE_FILE restores in Ubuntu upgrade exits"
 }
 
-@test "install.sh: Supabase release installer does not use RETURN trap cleanup" {
-    local installer="$PROJECT_ROOT/install.sh"
-
-    run bash -c 'sed -n "/^install_supabase_cli_release()/,/^}/p" "$1" | grep -F "trap "' _ "$installer"
-    assert_failure
-
-    run bash -c 'sed -n "/^install_supabase_cli_release()/,/^}/p" "$1" | grep -F "cleanup_supabase_cli_release_temp \"\$tmp_dir\" \"\$tmp_tgz\" \"\$tmp_checksums\"" | wc -l' _ "$installer"
-    assert_success
-    [[ "$output" -ge 8 ]] || fail "expected explicit Supabase temp cleanup before every installer exit"
-}
-
 @test "update_has_nvm_node: requires executable node binary" {
     local node_bin="$HOME/.nvm/versions/node/v99.0.0/bin"
 
@@ -1344,61 +1333,8 @@ EOF
 
     run grep -F 'run_cmd_bun_with_retry "Gemini CLI" update_run_in_target_context "" "$bun_bin" install -g --trust @google/gemini-cli@latest' "$update"
     assert_success
-
-    run grep -F 'run_cmd_bun_with_retry "Wrangler (Cloudflare)" update_run_in_target_context "" "$bun_bin" install -g --trust wrangler@latest' "$update"
-    assert_success
-
-    run grep -F 'run_cmd_bun_with_retry "Vercel CLI" update_run_in_target_context "" "$bun_bin" install -g --trust vercel@latest' "$update"
-    assert_success
-
     run grep -F 'run_cmd_bun_with_retry "Gemini CLI" "$bun_bin" install -g --trust @google/gemini-cli@latest' "$update"
     assert_failure
-
-    run grep -F 'run_cmd_bun_with_retry "Wrangler (Cloudflare)" "$bun_bin" install -g --trust wrangler@latest' "$update"
-    assert_failure
-
-    run grep -F 'run_cmd_bun_with_retry "Vercel CLI" "$bun_bin" install -g --trust vercel@latest' "$update"
-    assert_failure
-
-    run grep -F 'update_run_verified_installer_or_existing_on_transient "Meta Skill" ms ms ms --easy-mode || true' "$update"
-    assert_success
-
-    run grep -F 'update_run_verified_installer_or_existing_on_transient "CASS Memory" cm cm cm --easy-mode --verify || true' "$update"
-    assert_success
-
-    run grep -F 'run_cmd "Meta Skill" update_run_verified_installer ms --easy-mode' "$update"
-    assert_failure
-
-    run grep -F 'run_cmd "CASS Memory" update_run_verified_installer cm --easy-mode --verify' "$update"
-    assert_failure
-
-    run grep -F 'run_cmd "Supabase CLI" update_run_in_target_context "GTBI_PRIMARY_BIN_DIR=$supabase_primary_bin" bash -c "$(supabase_release_update_script)"' "$update"
-    assert_success
-
-    run grep -F 'run_cmd "Supabase CLI" env "GTBI_PRIMARY_BIN_DIR=$supabase_primary_bin" bash -c "$(supabase_release_update_script)"' "$update"
-    assert_failure
-
-    run grep -F 'run_cmd "AADC" update_run_cargo_git_source_install https://github.com/Dicklesworthstone/aadc.git aadc' "$update"
-    assert_success
-
-    run grep -F 'run_cmd "Rust Proxy" update_run_cargo_git_source_install https://github.com/Dicklesworthstone/rust_proxy.git rust_proxy' "$update"
-    assert_success
-
-    run grep -F 'run_cmd "AADC" bash -c' "$update"
-    assert_failure
-
-    run grep -F 'run_cmd "Rust Proxy" bash -c' "$update"
-    assert_failure
-
-    run grep -F 'run_cmd "DCG Hook" "$dcg_bin" install --force' "$update"
-    assert_success
-
-    run grep -F 'update_run_verified_installer_or_existing_on_transient "NTM" ntm ntm ntm' "$update"
-    assert_success
-
-    run grep -F 'update_run_verified_installer_or_existing_on_transient "Meta Skill" ms ms ms --easy-mode' "$update"
-    assert_success
-
     run grep -F '"$target_home/.atuin/bin/atuin"' "$update"
     assert_success
 
@@ -1406,136 +1342,6 @@ EOF
     assert_failure
 
     run grep -F 'command -v "$binary_name"' "$update"
-    assert_failure
-}
-
-@test "supabase release updater uses trusted curl and SHA helpers" {
-    local script=""
-
-    script="$(supabase_release_update_script)"
-
-    [[ "$script" == *"supabase_system_binary_path() {"* ]]
-    [[ "$script" == *'SUPABASE_CURL_BIN="$(supabase_system_binary_path curl 2>/dev/null || true)"'* ]]
-    [[ "$script" == *'supabase_curl -o "$tmp_tgz"'* ]]
-    [[ "$script" == *'supabase_curl -o "$tmp_checksums"'* ]]
-    [[ "$script" == *'actual_sha="$(supabase_sha256_file "$tmp_tgz")"'* ]]
-    [[ "$script" != *'command -v curl'* ]]
-    [[ "$script" != *'sha256sum "$tmp_tgz"'* ]]
-    [[ "$script" != *'shasum -a 256 "$tmp_tgz"'* ]]
-}
-
-@test "update_stack continues after Meta Skill retry exhaustion" {
-    QUIET=true
-    VERBOSE=false
-    DRY_RUN=false
-    UPDATE_STACK=true
-    ABORT_ON_FAILURE=false
-    GTBI_UPDATE_RETRY_MAX_ATTEMPTS=1
-    UPDATE_LOG_FILE="$HOME/update.log"
-    SUCCESS_COUNT=0
-    FAIL_COUNT=0
-    SKIP_COUNT=0
-
-    declare -gA KNOWN_INSTALLERS=([mcp_agent_mail]="https://example.test/install-am.sh")
-
-    update_require_security() { return 0; }
-    get_checksum() { printf '%s\n' "abc123"; }
-    verify_checksum() {
-        printf '%s\n' '#!/usr/bin/env bash'
-        printf '%s\n' 'exit 0'
-    }
-    update_target_user() { id -un; }
-    update_target_home() { printf '%s\n' "$HOME"; }
-    update_run_logged_passthrough() { return 0; }
-    update_source_stack_lib() { return 1; }
-    capture_version_before() { :; }
-    capture_version_after() { return 1; }
-    update_binary_exists() { return 1; }
-    update_run_verified_installer() {
-        case "${1:-}" in
-            ms)
-                printf '%s\n' "download failed: rate limit exceeded" >&2
-                return 7
-                ;;
-            apr)
-                : > "$HOME/apr-ran"
-                return 0
-                ;;
-            *)
-                return 0
-                ;;
-        esac
-    }
-    update_run_verified_installer_with_env() { return 0; }
-    update_run_slb_source_install() { return 0; }
-    update_run_fsfs_installer() { return 0; }
-
-    run update_stack
-    assert_success
-    assert_output --partial "[fail] Meta Skill"
-    [[ -f "$HOME/apr-ran" ]]
-}
-
-@test "update_stack runs CASS through target tmpdir fallback and continues on failure" {
-    local calls_file="$HOME/verified-installer-calls"
-
-    QUIET=true
-    VERBOSE=false
-    DRY_RUN=false
-    UPDATE_STACK=true
-    ABORT_ON_FAILURE=false
-    GTBI_UPDATE_RETRY_MAX_ATTEMPTS=1
-    UPDATE_LOG_FILE="$HOME/update.log"
-    SUCCESS_COUNT=0
-    FAIL_COUNT=0
-    SKIP_COUNT=0
-
-    declare -gA KNOWN_INSTALLERS=([mcp_agent_mail]="https://example.test/install-am.sh")
-
-    update_require_security() { return 0; }
-    get_checksum() { printf '%s\n' "abc123"; }
-    verify_checksum() {
-        printf '%s\n' '#!/usr/bin/env bash'
-        printf '%s\n' 'exit 0'
-    }
-    update_target_user() { id -un; }
-    update_target_home() { printf '%s\n' "$HOME"; }
-    update_run_logged_passthrough() { return 0; }
-    update_source_stack_lib() { return 0; }
-    _stack_repair_agent_mail_cli_symlink() { return 0; }
-    _stack_configure_agent_mail_service() { return 0; }
-    _stack_wait_for_agent_mail_health() { return 0; }
-    capture_version_before() { :; }
-    capture_version_after() { return 1; }
-    update_binary_exists() { return 1; }
-    update_run_verified_installer() {
-        printf 'plain:%s\n' "$*" >> "$calls_file"
-        return 0
-    }
-    update_run_verified_installer_with_env() {
-        printf 'env:%s\n' "$*" >> "$calls_file"
-        return 0
-    }
-    update_run_verified_installer_with_target_tmpdir_or_existing_on_transient() {
-        printf 'tmp-existing:%s\n' "$*" >> "$calls_file"
-        return 1
-    }
-    update_run_verified_installer_or_existing_on_transient() {
-        printf 'existing:%s\n' "$*" >> "$calls_file"
-        return 1
-    }
-    update_run_slb_source_install() { return 0; }
-    update_run_fsfs_installer() { return 0; }
-
-    run update_stack
-    assert_success
-    run grep -Fx "tmp-existing:CASS cass cass cass --easy-mode --verify" "$calls_file"
-    assert_success
-    run grep -Fx "existing:CASS Memory cm cm cm --easy-mode --verify" "$calls_file"
-    assert_success
-    run grep -Fx "plain:cm --easy-mode --verify" "$calls_file"
-    assert_failure
-    run grep -Fx "plain:cass --easy-mode --verify" "$calls_file"
     assert_failure
 }
 
@@ -3350,39 +3156,6 @@ EOF
     assert_failure
 }
 
-@test "services-setup and wrappers parse passwd homes via helpers" {
-    local services_setup="$PROJECT_ROOT/scripts/services-setup.sh"
-    local update_wrapper="$PROJECT_ROOT/scripts/gtbi-update"
-    local global_wrapper="$PROJECT_ROOT/scripts/gtbi-global"
-
-    run grep -F 'services_setup_passwd_home_from_entry() {' "$services_setup"
-    assert_success
-
-    run grep -F 'home="$(services_setup_passwd_home_from_entry "$passwd_entry" 2>/dev/null || true)"' "$services_setup"
-    assert_success
-
-    run grep -F 'done < <(services_setup_getent_passwd_entry 2>/dev/null || true)' "$services_setup"
-    assert_success
-
-    run grep -F 'cut -d: -f6' "$services_setup"
-    assert_failure
-
-    run grep -F 'awk -F: -v u=' "$services_setup"
-    assert_failure
-
-    run grep -F 'done < <(getent_passwd_entry 2>/dev/null || true)' "$update_wrapper"
-    assert_success
-
-    run grep -F 'done < <(getent_passwd_entry 2>/dev/null || true)' "$global_wrapper"
-    assert_success
-
-    run grep -F 'cut -d: -f6' "$update_wrapper"
-    assert_failure
-
-    run grep -F 'cut -d: -f6' "$global_wrapper"
-    assert_failure
-}
-
 @test "auxiliary libs parse passwd homes via helpers" {
     local support="$PROJECT_ROOT/scripts/lib/support.sh"
     local status_lib="$PROJECT_ROOT/scripts/lib/status.sh"
@@ -3398,7 +3171,6 @@ EOF
     local agents_lib="$PROJECT_ROOT/scripts/lib/agents.sh"
     local cli_tools_lib="$PROJECT_ROOT/scripts/lib/cli_tools.sh"
     local languages_lib="$PROJECT_ROOT/scripts/lib/languages.sh"
-    local cloud_db_lib="$PROJECT_ROOT/scripts/lib/cloud_db.sh"
     local stack_lib="$PROJECT_ROOT/scripts/lib/stack.sh"
     local doctor_lib="$PROJECT_ROOT/scripts/lib/doctor.sh"
     local doctor_fix_lib="$PROJECT_ROOT/scripts/lib/doctor_fix.sh"
@@ -3488,18 +3260,6 @@ EOF
     run grep -F '_lang_passwd_home_from_entry "$passwd_entry" 2>/dev/null || true' "$languages_lib"
     assert_success
 
-    run grep -F '_cloud_passwd_home_from_entry() {' "$cloud_db_lib"
-    assert_success
-
-    run grep -F '_cloud_passwd_home_from_entry "$passwd_entry" 2>/dev/null || true' "$cloud_db_lib"
-    assert_success
-
-    run grep -F '_stack_passwd_home_from_entry() {' "$stack_lib"
-    assert_success
-
-    run grep -F '_stack_passwd_home_from_entry "$passwd_entry" 2>/dev/null || true' "$stack_lib"
-    assert_success
-
     run grep -F '_gtbi_doctor_passwd_home_from_entry() {' "$doctor_lib"
     assert_success
 
@@ -3518,509 +3278,11 @@ EOF
     run grep -F 'user_passwd_home_from_entry "$passwd_entry" 2>/dev/null || true' "$user_lib"
     assert_success
 
-    run rg -n 'cut -d: -f6' "$support" "$status_lib" "$info" "$dashboard" "$export_config" "$cheatsheet" "$continue_lib" "$changelog_lib" "$notifications_lib" "$notify_lib" "$webhook_lib" "$agents_lib" "$cli_tools_lib" "$languages_lib" "$cloud_db_lib" "$stack_lib" "$doctor_lib" "$doctor_fix_lib" "$user_lib"
+    run rg -n 'cut -d: -f6' "$support" "$status_lib" "$info" "$dashboard" "$export_config" "$cheatsheet" "$continue_lib" "$changelog_lib" "$notifications_lib" "$notify_lib" "$webhook_lib" "$agents_lib" "$cli_tools_lib" "$languages_lib" "$stack_lib" "$doctor_lib" "$doctor_fix_lib" "$user_lib"
     assert_failure
 
     run rg -n 'awk -F: -v u=|awk -F: -v user=' "$doctor_lib" "$doctor_fix_lib" "$user_lib"
     assert_failure
-}
-
-@test "services-setup: probes custom and GTBI bin dirs for target-user commands" {
-    local services_setup="$PROJECT_ROOT/scripts/services-setup.sh"
-    local preflight="$PROJECT_ROOT/scripts/preflight.sh"
-
-    run grep -F "services_setup_validate_target_user() {" "$services_setup"
-    assert_success
-
-    run grep -F 'services_setup_validate_target_user "$TARGET_USER" || return 1' "$services_setup"
-    assert_success
-
-    run grep -F 'local target_path_prefix="$primary_bin_dir:$TARGET_HOME/.local/bin:$TARGET_HOME/.gtbi/bin:$TARGET_HOME/.cargo/bin:$TARGET_HOME/.bun/bin:$TARGET_HOME/.atuin/bin:$TARGET_HOME/go/bin"' "$services_setup"
-    assert_success
-
-    run grep -F 'run_as_user env GTBI_TARGET_PATH_PREFIX="$target_path_prefix" bash -c' "$services_setup"
-    assert_success
-
-    run grep -F '"$TARGET_HOME/.gtbi/bin/$name"' "$services_setup"
-    assert_success
-
-    run grep -F "printf '/home/%s\n' \"\$current_user\"" "$services_setup"
-    assert_failure
-
-    run grep -F "printf '/home/%s' \"\$user\"" "$services_setup"
-    assert_failure
-
-    run grep -F "printf '/home/%s\n' \"\$current_user\"" "$preflight"
-    assert_failure
-
-    run grep -F "printf '/home/%s\n' \"\$target_user\"" "$preflight"
-    assert_failure
-}
-
-@test "services-setup: PostgreSQL service start uses noninteractive sudo" {
-    local services_setup="$PROJECT_ROOT/scripts/services-setup.sh"
-
-    run grep -F 'sudo_cmd=("$sudo_bin" -n)' "$services_setup"
-    assert_success
-
-    run grep -F 'if ! "${sudo_cmd[@]}" "$systemctl_bin" start postgresql; then' "$services_setup"
-    assert_success
-
-    run grep -F 'if ! "${sudo_cmd[@]}" "$systemctl_bin" enable postgresql; then' "$services_setup"
-    assert_success
-
-    run grep -F 'Could not start PostgreSQL without prompting for sudo' "$services_setup"
-    assert_success
-}
-
-@test "services-setup: run_as_user ignores function-poisoned whoami on same-user fast path" {
-    local services_setup="$PROJECT_ROOT/scripts/services-setup.sh"
-    local current_user
-    local current_home
-
-    current_user="$(command id -un 2>/dev/null || command whoami 2>/dev/null || true)"
-    if [[ "$current_user" == "root" ]]; then
-        current_home="/root"
-    else
-        current_home="$(command getent passwd "$current_user" | cut -d: -f6)"
-    fi
-    current_home="${current_home%/}"
-    mkdir -p "$current_home/.local/bin"
-
-    eval "$(sed -n '/^services_setup_sanitize_abs_nonroot_path()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_valid_target_user()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_validate_target_user()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_system_binary_path()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_getent_passwd_entry()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_validate_bin_dir_for_home()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_resolve_current_user()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^run_as_user()/,/^}$/p' "$services_setup")"
-
-    export TARGET_USER="$current_user"
-    export TARGET_HOME="$current_home"
-    export HOME="$current_home"
-    export GTBI_BIN_DIR="$current_home/.local/bin"
-
-    whoami() {
-        printf 'poisoned-user\n'
-    }
-
-    sudo() {
-        echo 'sudo should not run' >&2
-        return 1
-    }
-
-    run run_as_user bash -c 'printf "%s\n" "$HOME"'
-    assert_success
-    assert_output "$current_home"
-}
-
-@test "services-setup: privilege handoff ignores function-poisoned system commands" {
-    local services_setup="$PROJECT_ROOT/scripts/services-setup.sh"
-    local stub_dir
-    local safe_sudo
-    local marker
-    local env_bin
-    local bash_bin
-    local sh_bin
-    stub_dir="$(create_temp_dir)"
-    safe_sudo="$stub_dir/sudo"
-    marker="$stub_dir/poisoned"
-    env_bin="$(command -v env)"
-    bash_bin="$(command -v bash)"
-    sh_bin="$(command -v sh)"
-    export TEST_SERVICES_ENV_BIN="$env_bin"
-    export TEST_SERVICES_BASH_BIN="$bash_bin"
-    export TEST_SERVICES_SH_BIN="$sh_bin"
-    export TEST_SERVICES_SAFE_SUDO="$safe_sudo"
-    export TEST_SERVICES_POISON_MARKER="$marker"
-
-    cat > "$safe_sudo" <<'EOF'
-#!/usr/bin/env bash
-printf 'safe-sudo:%s\n' "$*"
-EOF
-    chmod +x "$safe_sudo"
-
-    eval "$(sed -n '/^services_setup_sanitize_abs_nonroot_path()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_valid_target_user()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_validate_target_user()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_validate_bin_dir_for_home()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^run_as_user()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^run_as_user_shell()/,/^}$/p' "$services_setup")"
-
-    log_error() {
-        printf '%s\n' "$*" >&2
-    }
-
-    services_setup_resolve_current_user() {
-        printf 'calleruser\n'
-    }
-
-    services_setup_system_binary_path() {
-        case "${1:-}" in
-            env) printf '%s\n' "$TEST_SERVICES_ENV_BIN" ;;
-            bash) printf '%s\n' "$TEST_SERVICES_BASH_BIN" ;;
-            sh) printf '%s\n' "$TEST_SERVICES_SH_BIN" ;;
-            sudo) printf '%s\n' "$TEST_SERVICES_SAFE_SUDO" ;;
-            runuser|su) return 1 ;;
-            *) return 1 ;;
-        esac
-    }
-
-    env() {
-        printf 'env\n' > "$TEST_SERVICES_POISON_MARKER"
-        return 99
-    }
-    sudo() {
-        printf 'sudo\n' > "$TEST_SERVICES_POISON_MARKER"
-        return 99
-    }
-    runuser() {
-        printf 'runuser\n' > "$TEST_SERVICES_POISON_MARKER"
-        return 99
-    }
-    su() {
-        printf 'su\n' > "$TEST_SERVICES_POISON_MARKER"
-        return 99
-    }
-
-    export TARGET_USER="gtbiuser"
-    export TARGET_HOME="$stub_dir/home"
-    export GTBI_BIN_DIR="$TARGET_HOME/.local/bin"
-    mkdir -p "$GTBI_BIN_DIR"
-
-    run run_as_user printf ok
-    assert_success
-    assert_output --partial "safe-sudo:-n -u gtbiuser -H"
-    [[ ! -e "$marker" ]] || fail "function-poisoned command executed: $(<"$marker")"
-
-    run run_as_user_shell 'printf ok'
-    assert_success
-    assert_output --partial "safe-sudo:-n -u gtbiuser -H"
-    [[ ! -e "$marker" ]] || fail "function-poisoned command executed: $(<"$marker")"
-}
-
-@test "services-setup: run_as_user normalizes env/bash infrastructure argv" {
-    local services_setup="$PROJECT_ROOT/scripts/services-setup.sh"
-    local target_home
-    local fake_env
-    local fake_bash
-    local marker
-    local env_bin
-    local bash_bin
-    local sh_bin
-
-    target_home="$(create_temp_dir)"
-    fake_env="$target_home/.local/bin/env"
-    fake_bash="$target_home/.local/bin/bash"
-    marker="$target_home/poisoned"
-    env_bin="$(command -v env)"
-    bash_bin="$(command -v bash)"
-    sh_bin="$(command -v sh)"
-    mkdir -p "$(dirname "$fake_bash")"
-    export TEST_SERVICES_TARGET_HOME="$target_home"
-    export TEST_SERVICES_MARKER="$marker"
-    export TEST_SERVICES_ENV_BIN="$env_bin"
-    export TEST_SERVICES_BASH_BIN="$bash_bin"
-    export TEST_SERVICES_SH_BIN="$sh_bin"
-
-    cat > "$fake_env" <<'EOF'
-#!/bin/sh
-printf 'fake-env\n' > "$TEST_SERVICES_MARKER"
-exit 99
-EOF
-    chmod +x "$fake_env"
-
-    cat > "$fake_bash" <<'EOF'
-#!/usr/bin/env bash
-printf 'fake-bash\n' > "$TEST_SERVICES_MARKER"
-exit 99
-EOF
-    chmod +x "$fake_bash"
-
-    eval "$(sed -n '/^services_setup_sanitize_abs_nonroot_path()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_valid_target_user()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_validate_target_user()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_validate_bin_dir_for_home()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^run_as_user()/,/^}$/p' "$services_setup")"
-
-    log_error() {
-        printf '%s\n' "$*" >&2
-    }
-
-    services_setup_resolve_current_user() {
-        printf 'gtbiuser\n'
-    }
-
-    services_setup_system_binary_path() {
-        case "${1:-}" in
-            env) printf '%s\n' "$TEST_SERVICES_ENV_BIN" ;;
-            bash) printf '%s\n' "$TEST_SERVICES_BASH_BIN" ;;
-            sh) printf '%s\n' "$TEST_SERVICES_SH_BIN" ;;
-            sudo|runuser|su) return 1 ;;
-            *) command -v -- "${1:-}" 2>/dev/null || return 1 ;;
-        esac
-    }
-
-    env() {
-        printf 'env\n' > "$TEST_SERVICES_MARKER"
-        return 99
-    }
-    bash() {
-        printf 'bash\n' > "$TEST_SERVICES_MARKER"
-        return 99
-    }
-    sh() {
-        printf 'sh\n' > "$TEST_SERVICES_MARKER"
-        return 99
-    }
-
-    export TARGET_USER="gtbiuser"
-    export TARGET_HOME="$target_home"
-    export GTBI_BIN_DIR="$target_home/.local/bin"
-    export PATH="$target_home/.local/bin:$PATH"
-
-    run run_as_user env TEST_SERVICES_FLAG=ok bash -c 'printf "%s" "$TEST_SERVICES_FLAG"'
-    assert_success
-    assert_output "ok"
-    [[ ! -e "$marker" ]] || fail "function or PATH-poisoned helper executed: $(<"$marker")"
-}
-
-@test "services-setup: init_target_context repairs stale TARGET_HOME from trusted passwd data" {
-    local services_setup="$PROJECT_ROOT/scripts/services-setup.sh"
-    local test_current_user
-    local test_trusted_home
-    local test_stale_home
-    local stale_bun
-    local trusted_bun
-    local env_home_output
-
-    test_current_user="$(command id -un 2>/dev/null || command whoami 2>/dev/null || true)"
-    test_trusted_home="$(create_temp_dir)"
-    test_stale_home="$(create_temp_dir)"
-    stale_bun="$test_stale_home/.local/bin/bun"
-    trusted_bun="$test_trusted_home/.local/bin/bun"
-    mkdir -p "$test_trusted_home/.local/bin" "$test_trusted_home/.gtbi" "$test_stale_home/.local/bin" "$test_stale_home/.gtbi"
-    touch "$stale_bun" "$trusted_bun"
-    chmod +x "$stale_bun" "$trusted_bun"
-
-    eval "$(sed -n '/^services_setup_sanitize_abs_nonroot_path()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_valid_target_user()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_validate_target_user()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_system_binary_path()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_passwd_home_from_entry()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^resolve_home_dir()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_validate_bin_dir_for_home()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^find_user_bin()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^init_target_context()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^run_as_user()/,/^}$/p' "$services_setup")"
-
-    log_error() {
-        printf '%s\n' "$*" >&2
-    }
-
-    services_setup_resolve_current_user() {
-        printf '%s\n' "$test_current_user"
-    }
-
-    services_setup_getent_passwd_entry() {
-        if [[ -z "${1:-}" ]]; then
-            printf '%s:x:1000:1000::%s:/bin/bash\n' "$test_current_user" "$test_trusted_home"
-            printf 'stale-user:x:1001:1001::%s:/bin/bash\n' "$test_stale_home"
-            return 0
-        fi
-        if [[ "${1:-}" == "$test_current_user" ]]; then
-            printf '%s:x:1000:1000::%s:/bin/bash\n' "$test_current_user" "$test_trusted_home"
-            return 0
-        fi
-        return 1
-    }
-
-    export TARGET_USER="$test_current_user"
-    export TARGET_HOME="$test_stale_home"
-    export HOME="$test_stale_home"
-    export GTBI_BIN_DIR="$test_stale_home/.local/bin"
-    export GTBI_HOME="$test_stale_home/.gtbi"
-    export BUN_BIN="$stale_bun"
-    _SERVICES_SETUP_ENV_HOME="$test_stale_home"
-
-    init_target_context
-
-    [[ "$TARGET_HOME" == "$test_trusted_home" ]] || {
-        printf 'TARGET_HOME was not repaired: %s\n' "$TARGET_HOME" >&2
-        return 1
-    }
-    [[ "$GTBI_BIN_DIR" != "$test_stale_home/.local/bin" ]] || {
-        printf 'GTBI_BIN_DIR still points at stale home\n' >&2
-        return 1
-    }
-    [[ "$GTBI_HOME" == "$test_trusted_home/.gtbi" ]] || {
-        printf 'GTBI_HOME was not repaired: %s\n' "$GTBI_HOME" >&2
-        return 1
-    }
-    [[ "$BUN_BIN" == "$trusted_bun" ]] || {
-        printf 'BUN_BIN was not repaired: %s\n' "$BUN_BIN" >&2
-        return 1
-    }
-
-    env_home_output="$(run_as_user bash -c 'printf "%s\n" "$HOME"')"
-    [[ "$env_home_output" == "$test_trusted_home" ]] || {
-        printf 'run_as_user HOME was not repaired: %s\n' "$env_home_output" >&2
-        return 1
-    }
-}
-
-@test "services-setup: init_target_context ignores explicit other-user TARGET_HOME" {
-    local services_setup="$PROJECT_ROOT/scripts/services-setup.sh"
-    local target_home
-    local stale_home
-    local caller_home
-    local stale_bun
-    local target_bun
-    target_home="$(create_temp_dir)"
-    stale_home="$(create_temp_dir)"
-    caller_home="$(create_temp_dir)"
-    stale_bun="$stale_home/.local/bin/bun"
-    target_bun="$target_home/.local/bin/bun"
-
-    mkdir -p "$target_home/.local/bin" "$target_home/.gtbi" "$stale_home/.local/bin" "$stale_home/.gtbi"
-    touch "$stale_bun" "$target_bun"
-    chmod +x "$stale_bun" "$target_bun"
-
-    eval "$(sed -n '/^services_setup_sanitize_abs_nonroot_path()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_valid_target_user()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_validate_target_user()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_passwd_home_from_entry()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^resolve_home_dir()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_validate_bin_dir_for_home()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^find_user_bin()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^init_target_context()/,/^}$/p' "$services_setup")"
-
-    log_error() {
-        printf '%s\n' "$*" >&2
-    }
-
-    services_setup_getent_passwd_entry() {
-        if [[ -z "${1:-}" ]]; then
-            printf 'gtbitestuser:x:1000:1000::%s:/bin/bash\n' "$target_home"
-            printf 'stale-user:x:1001:1001::%s:/bin/bash\n' "$stale_home"
-            return 0
-        fi
-        if [[ "${1:-}" == "gtbitestuser" ]]; then
-            printf 'gtbitestuser:x:1000:1000::%s:/bin/bash\n' "$target_home"
-            return 0
-        fi
-        return 1
-    }
-
-    export TARGET_USER="gtbitestuser"
-    export TARGET_HOME="$stale_home"
-    export HOME="$caller_home"
-    export GTBI_BIN_DIR="$stale_home/.local/bin"
-    export GTBI_HOME="$stale_home/.gtbi"
-    export BUN_BIN="$stale_bun"
-    _SERVICES_SETUP_ENV_HOME="$caller_home"
-
-    init_target_context
-
-    [[ "$TARGET_HOME" == "$target_home" ]] || {
-        printf 'TARGET_HOME was not repaired: %s\n' "$TARGET_HOME" >&2
-        return 1
-    }
-    [[ "$GTBI_BIN_DIR" != "$stale_home/.local/bin" ]] || {
-        printf 'GTBI_BIN_DIR still points at stale home\n' >&2
-        return 1
-    }
-    [[ "$GTBI_HOME" == "$target_home/.gtbi" ]] || {
-        printf 'GTBI_HOME was not repaired: %s\n' "$GTBI_HOME" >&2
-        return 1
-    }
-    [[ "$BUN_BIN" == "$target_bun" ]] || {
-        printf 'BUN_BIN was not repaired: %s\n' "$BUN_BIN" >&2
-        return 1
-    }
-}
-
-@test "services-setup: init_target_context fails closed for unresolved target with explicit TARGET_HOME" {
-    local services_setup="$PROJECT_ROOT/scripts/services-setup.sh"
-    local stale_home
-
-    stale_home="$(create_temp_dir)"
-    mkdir -p "$stale_home/.local/bin" "$stale_home/.gtbi"
-
-    eval "$(sed -n '/^services_setup_sanitize_abs_nonroot_path()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_valid_target_user()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_validate_target_user()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_passwd_home_from_entry()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^resolve_home_dir()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_validate_bin_dir_for_home()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^find_user_bin()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^init_target_context()/,/^}$/p' "$services_setup")"
-
-    log_error() {
-        printf '%s\n' "$*" >&2
-    }
-
-    services_setup_resolve_current_user() {
-        printf 'calleruser\n'
-    }
-
-    services_setup_getent_passwd_entry() {
-        return 1
-    }
-
-    export TARGET_USER="missinguser"
-    export TARGET_HOME="$stale_home"
-    export HOME="$stale_home"
-    export GTBI_BIN_DIR="$stale_home/.local/bin"
-    export GTBI_HOME="$stale_home/.gtbi"
-
-    run init_target_context
-    assert_failure
-    assert_output --partial "Unable to determine home directory for user: missinguser"
-}
-
-@test "services-setup: init_target_context honors explicit TARGET_HOME for current target without passwd" {
-    local services_setup="$PROJECT_ROOT/scripts/services-setup.sh"
-    local caller_home
-    local stale_home
-
-    caller_home="$(create_temp_dir)"
-    stale_home="$(create_temp_dir)"
-    mkdir -p "$caller_home/.local/bin" "$stale_home/.local/bin" "$stale_home/.gtbi"
-
-    eval "$(sed -n '/^services_setup_sanitize_abs_nonroot_path()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_valid_target_user()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_validate_target_user()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_passwd_home_from_entry()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^resolve_home_dir()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_validate_bin_dir_for_home()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^find_user_bin()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^init_target_context()/,/^}$/p' "$services_setup")"
-
-    log_error() {
-        printf '%s\n' "$*" >&2
-    }
-
-    services_setup_resolve_current_user() {
-        printf 'calleruser\n'
-    }
-
-    services_setup_getent_passwd_entry() {
-        return 1
-    }
-
-    export TARGET_USER="calleruser"
-    export TARGET_HOME="$stale_home"
-    export HOME="$caller_home"
-    export GTBI_BIN_DIR="$stale_home/.local/bin"
-    export GTBI_HOME="$stale_home/.gtbi"
-
-    init_target_context
-    [[ "$TARGET_HOME" == "$stale_home" ]] || {
-        printf 'TARGET_HOME did not preserve explicit same-user home: %s\n' "$TARGET_HOME" >&2
-        return 1
-    }
 }
 
 @test "diagnostic helpers: prepend primary GTBI bin dir and ~/.gtbi/bin" {
@@ -5828,7 +5090,6 @@ EOF_TOP_LEVEL_RESOLVERS_REJECT_PATHS
         assert_success "$label resolver accepted a pathlike name"
     done <<EOF
 preflight|$PROJECT_ROOT/scripts/preflight.sh|preflight_system_binary_path
-services-setup|$PROJECT_ROOT/scripts/services-setup.sh|services_setup_system_binary_path
 install-workflow|$PROJECT_ROOT/scripts/install-gtbi-workflow.sh|workflow_system_binary_path
 EOF
 }
@@ -5951,7 +5212,6 @@ languages|$PROJECT_ROOT/scripts/lib/languages.sh|_lang_system_binary_path
 nightly-update|$PROJECT_ROOT/scripts/lib/nightly_update.sh|system_binary_path
 os-detect|$PROJECT_ROOT/scripts/lib/os_detect.sh|os_detect_system_binary_path
 security|$PROJECT_ROOT/scripts/lib/security.sh|gtbi_security_system_binary_path
-supabase-update|$PROJECT_ROOT/scripts/lib/update.sh|supabase_system_binary_path
 user|$PROJECT_ROOT/scripts/lib/user.sh|user_system_binary_path
 zsh|$PROJECT_ROOT/scripts/lib/zsh.sh|zsh_system_binary_path
 EOF
@@ -5978,10 +5238,8 @@ EOF_TARGET_RESOLVERS_REJECT_PATHS
     done <<EOF
 install|$PROJECT_ROOT/install.sh|binary_path
 preflight|$PROJECT_ROOT/scripts/preflight.sh|preflight_binary_path
-services-setup|$PROJECT_ROOT/scripts/services-setup.sh|find_user_bin
 onboard|$PROJECT_ROOT/packages/onboard/onboard.sh|onboard_runtime_binary_path
 cli-tools|$PROJECT_ROOT/scripts/lib/cli_tools.sh|_cli_target_has_command
-stack|$PROJECT_ROOT/scripts/lib/stack.sh|_stack_target_command_path
 update|$PROJECT_ROOT/scripts/lib/update.sh|update_binary_path
 doctor|$PROJECT_ROOT/scripts/lib/doctor.sh|doctor_binary_path
 github-api|$PROJECT_ROOT/scripts/lib/github_api.sh|_github_api_binary_path
@@ -6014,12 +5272,9 @@ EOF_COMMAND_EXISTS_REJECTS_PATHS
 install|$PROJECT_ROOT/install.sh|command_exists
 install-helpers|$PROJECT_ROOT/scripts/lib/install_helpers.sh|command_exists
 install-helpers-target|$PROJECT_ROOT/scripts/lib/install_helpers.sh|command_exists_as_target
-services-setup-target|$PROJECT_ROOT/scripts/services-setup.sh|user_command_exists
 agents|$PROJECT_ROOT/scripts/lib/agents.sh|_agent_command_exists
-cloud-db|$PROJECT_ROOT/scripts/lib/cloud_db.sh|_cloud_command_exists
 cli-tools|$PROJECT_ROOT/scripts/lib/cli_tools.sh|_cli_command_exists
 languages|$PROJECT_ROOT/scripts/lib/languages.sh|_lang_command_exists
-stack|$PROJECT_ROOT/scripts/lib/stack.sh|_stack_command_exists
 update|$PROJECT_ROOT/scripts/lib/update.sh|cmd_exists
 EOF
 }
@@ -6330,7 +5585,6 @@ EOF_DASHBOARD_TRAP
     local update_wrapper="$PROJECT_ROOT/scripts/gtbi-update"
     local global_wrapper="$PROJECT_ROOT/scripts/gtbi-global"
     local preflight="$PROJECT_ROOT/scripts/preflight.sh"
-    local services_setup="$PROJECT_ROOT/scripts/services-setup.sh"
     local onboard="$PROJECT_ROOT/packages/onboard/onboard.sh"
 
     run grep -F '[[ "$username" =~ ^[a-z_][a-z0-9._-]*$ ]]' "$update_wrapper"
@@ -6346,9 +5600,6 @@ EOF_DASHBOARD_TRAP
     assert_success
 
     run grep -F '[[ "$username" =~ ^[a-z_][a-z0-9._-]*$ ]]' "$preflight"
-    assert_success
-
-    run grep -F '[[ "$user" =~ ^[a-z_][a-z0-9._-]*$ ]]' "$services_setup"
     assert_success
 
     run grep -F 'onboard_passwd_home_from_entry() {' "$onboard"
@@ -6419,8 +5670,6 @@ EOF_DASHBOARD_TRAP
     local cli_tools="$PROJECT_ROOT/scripts/lib/cli_tools.sh"
     local agents="$PROJECT_ROOT/scripts/lib/agents.sh"
     local languages="$PROJECT_ROOT/scripts/lib/languages.sh"
-    local cloud_db="$PROJECT_ROOT/scripts/lib/cloud_db.sh"
-    local stack="$PROJECT_ROOT/scripts/lib/stack.sh"
 
     run grep -F '_cli_validate_target_user "$target_user" || return 1' "$cli_tools"
     assert_success
@@ -6442,76 +5691,6 @@ EOF_DASHBOARD_TRAP
     assert_success
     run grep -F 'wrapped_cmd+=" export PATH=$target_path_prefix_q:\$PATH; set -o pipefail; cd \"\$HOME\" || exit 1; $cmd"' "$languages"
     assert_success
-
-    run grep -F '_cloud_validate_target_user "$target_user" || return 1' "$cloud_db"
-    assert_success
-    run grep -F 'wrapped_cmd="export TARGET_USER=$target_user_q TARGET_HOME=$target_home_q HOME=$target_home_q;"' "$cloud_db"
-    assert_success
-    run grep -F 'wrapped_cmd+=" export PATH=$target_path_prefix_q:\$PATH; set -o pipefail; cd \"\$HOME\" || exit 1; $cmd"' "$cloud_db"
-    assert_success
-
-    run grep -F '_stack_validate_target_user "$target_user" || return 1' "$stack"
-    assert_success
-    run grep -F 'printf -v target_path_prefix_q' "$stack"
-    assert_success
-    run grep -F 'wrapped_cmd+=" export PATH=$target_path_prefix_q:$system_path_prefix:\$PATH; set -o pipefail; cd \"\$HOME\" || exit 1; $cmd"' "$stack"
-    assert_success
-}
-
-@test "stack run-as-user treats target PATH as inert shell data" {
-    local marker="$BATS_TEST_TMPDIR/stack-path-pwn"
-    local poisoned_home="$BATS_TEST_TMPDIR/home-\$(printf pwn > $marker)"
-
-    mkdir -p "$poisoned_home/.local/bin"
-    export HOME="$poisoned_home"
-    export TARGET_HOME="$poisoned_home"
-    export GTBI_BIN_DIR="$poisoned_home/.local/bin"
-    unset TARGET_USER
-
-    source_lib "stack"
-    _stack_resolve_current_user() {
-        printf 'ubuntu\n'
-    }
-
-    run _stack_run_as_user "printf 'ok\n'"
-    assert_success
-    assert_output "ok"
-    [[ ! -e "$marker" ]] || fail "_stack_run_as_user executed target PATH as shell source"
-}
-
-@test "stack fallback CASS installer uses target-owned TMPDIR" {
-    local stack_lib="$PROJECT_ROOT/scripts/lib/stack.sh"
-
-    run grep -F '_stack_run_verified_installer_with_target_tmpdir "$tool" --easy-mode --verify' "$stack_lib"
-    assert_success
-
-    run grep -F 'tmpdir_template="$tmpdir_parent/${tool}.XXXXXX"' "$stack_lib"
-    assert_success
-
-    run grep -F '_stack_run_as_user "mktemp -d $tmpdir_template_q"' "$stack_lib"
-    assert_success
-}
-
-@test "stack helpers can trust explicitly resolved TARGET_HOME for doctor/update repairs" {
-    source_lib "stack"
-
-    local target_home="$BATS_TEST_TMPDIR/target-home"
-    local target_am="$target_home/mcp_agent_mail/am"
-    mkdir -p "$(dirname "$target_am")"
-    cat > "$target_am" <<'EOF'
-#!/usr/bin/env bash
-exit 0
-EOF
-    chmod +x "$target_am"
-
-    export TARGET_USER="ubuntu"
-    export TARGET_HOME="$target_home"
-    export GTBI_BIN_DIR="/home/ubuntu/.local/bin"
-    export GTBI_STACK_TRUST_TARGET_HOME=true
-
-    run _stack_agent_mail_cli_path
-    assert_success
-    assert_output "$target_am"
 }
 
 @test "stack SLB installer checks active Go PATH lines only" {
@@ -6552,20 +5731,6 @@ EOF
     assert_failure
     assert_output --partial "Invalid TARGET_USER '../bad user'"
     [[ ! -s "$STUB_DIR/sudo.log" ]] || fail "_lang_run_as_user should not invoke sudo for invalid TARGET_USER"
-
-    source_lib "cloud_db"
-    : > "$STUB_DIR/sudo.log"
-    run _cloud_run_as_user env
-    assert_failure
-    assert_output --partial "Invalid TARGET_USER '../bad user'"
-    [[ ! -s "$STUB_DIR/sudo.log" ]] || fail "_cloud_run_as_user should not invoke sudo for invalid TARGET_USER"
-
-    source_lib "stack"
-    : > "$STUB_DIR/sudo.log"
-    run _stack_run_as_user env
-    assert_failure
-    assert_output --partial "Invalid TARGET_USER '../bad user'"
-    [[ ! -s "$STUB_DIR/sudo.log" ]] || fail "_stack_run_as_user should not invoke sudo for invalid TARGET_USER"
 }
 
 @test "helper home resolvers ignore stale explicit TARGET_HOME" {
@@ -6595,16 +5760,6 @@ EOF
 
     source_lib "languages"
     run _lang_target_home "$current_user"
-    assert_success
-    assert_output "$resolved_home"
-
-    source_lib "cloud_db"
-    run _cloud_target_home "$current_user"
-    assert_success
-    assert_output "$resolved_home"
-
-    source_lib "stack"
-    run _stack_target_home "$current_user"
     assert_success
     assert_output "$resolved_home"
 }
@@ -6647,27 +5802,6 @@ EOF
     run _lang_target_home "tester"
     assert_success
     assert_output "$target_home"
-
-    source_lib "cloud_db"
-    _cloud_resolve_current_user() { printf 'tester\n'; }
-    _cloud_getent_passwd_entry() { return 2; }
-    run _cloud_target_home "tester"
-    assert_success
-    assert_output "$target_home"
-
-    source_lib "stack"
-    _stack_resolve_current_user() { printf 'tester\n'; }
-    _stack_getent_passwd_entry() { return 2; }
-    run _stack_target_home "tester"
-    assert_success
-    assert_output "$target_home"
-
-    source_lib "autofix"
-    autofix_resolve_current_user() { printf 'tester\n'; }
-    autofix_lookup_passwd_home() { return 1; }
-    run autofix_runtime_home
-    assert_success
-    assert_output "$target_home"
 }
 
 @test "helper home resolvers ignore pre-repair HOME after update.sh fixes HOME" {
@@ -6700,21 +5834,6 @@ EOF
 
     source_lib "languages"
     run _lang_target_home "$current_user"
-    assert_success
-    assert_output "$resolved_home"
-
-    source_lib "cloud_db"
-    run _cloud_target_home "$current_user"
-    assert_success
-    assert_output "$resolved_home"
-
-    source_lib "stack"
-    run _stack_target_home "$current_user"
-    assert_success
-    assert_output "$resolved_home"
-
-    source_lib "autofix"
-    run autofix_runtime_home
     assert_success
     assert_output "$resolved_home"
 }
@@ -6750,21 +5869,6 @@ EOF
 
     source_lib "languages"
     run _lang_target_home "$current_user"
-    assert_success
-    assert_output "$resolved_home"
-
-    source_lib "cloud_db"
-    run _cloud_target_home "$current_user"
-    assert_success
-    assert_output "$resolved_home"
-
-    source_lib "stack"
-    run _stack_target_home "$current_user"
-    assert_success
-    assert_output "$resolved_home"
-
-    source_lib "autofix"
-    run autofix_runtime_home
     assert_success
     assert_output "$resolved_home"
 }
@@ -6830,26 +5934,6 @@ EOF
     run _lang_target_home "root"
     assert_success
     assert_output "/root"
-
-    source_lib "cloud_db"
-    run _cloud_target_home "root"
-    assert_success
-    assert_output "/root"
-
-    source_lib "stack"
-    run _stack_target_home "root"
-    assert_success
-    assert_output "/root"
-
-    source_lib "autofix"
-    run autofix_runtime_home
-    assert_success
-    assert_output "/root"
-
-    source_lib "github_api"
-    run _github_api_runtime_home
-    assert_success
-    assert_output "/root"
 }
 
 @test "helper home resolvers ignore function-poisoned passwd and identity shims" {
@@ -6901,16 +5985,6 @@ EOF
     run _lang_target_home "$current_user"
     assert_success
     assert_output "$current_home"
-
-    source_lib "cloud_db"
-    run _cloud_target_home "$current_user"
-    assert_success
-    assert_output "$current_home"
-
-    source_lib "stack"
-    run _stack_target_home "$current_user"
-    assert_success
-    assert_output "$current_home"
 }
 
 @test "run-as-user helper libs ignore function-poisoned whoami on same-user fast path" {
@@ -6952,20 +6026,6 @@ EOF
     assert_success
     assert_output "$current_home"
     [[ ! -s "$STUB_DIR/sudo.log" ]] || fail "_lang_run_as_user should not invoke sudo for same-user fast path"
-
-    source_lib "cloud_db"
-    : > "$STUB_DIR/sudo.log"
-    run _cloud_run_as_user 'printf "%s\n" "$HOME"'
-    assert_success
-    assert_output "$current_home"
-    [[ ! -s "$STUB_DIR/sudo.log" ]] || fail "_cloud_run_as_user should not invoke sudo for same-user fast path"
-
-    source_lib "stack"
-    : > "$STUB_DIR/sudo.log"
-    run _stack_run_as_user 'printf "%s\n" "$HOME"'
-    assert_success
-    assert_output "$current_home"
-    [[ ! -s "$STUB_DIR/sudo.log" ]] || fail "_stack_run_as_user should not invoke sudo for same-user fast path"
 }
 
 @test "run-as-user helper libs ignore function-poisoned privilege helpers" {
@@ -7057,46 +6117,6 @@ EOF
     assert_success
     assert_output --partial "safe-sudo:-n -u gtbiuser -H"
     [[ ! -e "$marker" ]] || fail "_lang_run_as_user executed function-poisoned helper: $(<"$marker")"
-
-    source_lib "cloud_db"
-    _cloud_resolve_current_user() { printf 'calleruser\n'; }
-    _cloud_target_home() { printf '%s\n' "$TEST_PRIV_TARGET_HOME"; }
-    _cloud_system_binary_path() {
-        case "${1:-}" in
-            bash) printf '%s\n' "$TEST_PRIV_BASH_BIN" ;;
-            sudo) printf '%s\n' "$TEST_PRIV_SAFE_SUDO" ;;
-            runuser|su) return 1 ;;
-            *) command -v -- "${1:-}" 2>/dev/null || return 1 ;;
-        esac
-    }
-    run _cloud_run_as_user "printf ok"
-    assert_success
-    assert_output --partial "safe-sudo:-n -u gtbiuser -H"
-    [[ ! -e "$marker" ]] || fail "_cloud_run_as_user executed function-poisoned helper: $(<"$marker")"
-
-    source_lib "stack"
-    _stack_resolve_current_user() { printf 'calleruser\n'; }
-    _stack_target_home() { printf '%s\n' "$TEST_PRIV_TARGET_HOME"; }
-    _stack_target_bin_dir() { printf '%s\n' "$TEST_PRIV_TARGET_HOME/.local/bin"; }
-    _stack_system_binary_path() {
-        case "${1:-}" in
-            bash) printf '%s\n' "$TEST_PRIV_BASH_BIN" ;;
-            sudo) printf '%s\n' "$TEST_PRIV_SAFE_SUDO" ;;
-            runuser|su) return 1 ;;
-            *) command -v -- "${1:-}" 2>/dev/null || return 1 ;;
-        esac
-    }
-    run _stack_run_as_user "printf ok"
-    assert_success
-    assert_output --partial "safe-sudo:-n -u gtbiuser -H"
-    [[ ! -e "$marker" ]] || fail "_stack_run_as_user executed function-poisoned helper: $(<"$marker")"
-}
-
-@test "cloud postgres helper uses noninteractive sudo fallback" {
-    local cloud_db="$PROJECT_ROOT/scripts/lib/cloud_db.sh"
-
-    run grep -F '"$sudo_bin" -n -u postgres -H "$bash_bin" -c "$wrapped_cmd"' "$cloud_db"
-    assert_success
 }
 
 @test "helper bin-dir selectors ignore function-poisoned getent passwd streams" {
@@ -7134,94 +6154,6 @@ EOF
     run _agent_validate_bin_dir_for_home "$fake_bin_dir" ""
     assert_success
     assert_output "$fake_bin_dir"
-
-    source_lib "stack"
-    run _stack_target_bin_dir "$current_user"
-    assert_success
-    assert_output "$current_home/.local/bin"
-}
-
-@test "services-setup: resolve_home_dir prefers current HOME over guessed standard path" {
-    local services_setup="$PROJECT_ROOT/scripts/services-setup.sh"
-    local resolved_home
-    resolved_home="$(create_temp_dir)"
-
-    eval "$(sed -n '/^services_setup_sanitize_abs_nonroot_path()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_system_binary_path()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_resolve_current_user()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_getent_passwd_entry()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^resolve_home_dir()/,/^}$/p' "$services_setup")"
-
-    export HOME="$resolved_home"
-
-    services_setup_resolve_current_user() {
-        printf 'tester\n'
-    }
-
-    services_setup_getent_passwd_entry() {
-        return 1
-    }
-
-    run resolve_home_dir "tester"
-    assert_success
-    assert_output "$resolved_home"
-}
-
-@test "services-setup: resolve_home_dir does not let current HOME override explicit target home" {
-    local services_setup="$PROJECT_ROOT/scripts/services-setup.sh"
-    local current_home
-    local target_home
-
-    current_home="$(create_temp_dir)"
-    target_home="$(create_temp_dir)"
-
-    eval "$(sed -n '/^services_setup_sanitize_abs_nonroot_path()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_system_binary_path()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_resolve_current_user()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_getent_passwd_entry()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^resolve_home_dir()/,/^}$/p' "$services_setup")"
-
-    export HOME="$current_home"
-
-    services_setup_resolve_current_user() {
-        printf 'tester\n'
-    }
-
-    services_setup_getent_passwd_entry() {
-        return 1
-    }
-
-    run resolve_home_dir "tester" "$target_home"
-    assert_failure
-
-    run resolve_home_dir "tester" "$current_home"
-    assert_success
-    assert_output "$current_home"
-}
-
-@test "services-setup: resolve_current_home fails closed when HOME is invalid and passwd lookup fails" {
-    local services_setup="$PROJECT_ROOT/scripts/services-setup.sh"
-
-    eval "$(sed -n '/^services_setup_sanitize_abs_nonroot_path()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_system_binary_path()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_resolve_current_user()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_getent_passwd_entry()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_passwd_home_from_entry()/,/^}$/p' "$services_setup")"
-    eval "$(sed -n '/^services_setup_resolve_current_home()/,/^}$/p' "$services_setup")"
-
-    export HOME="relative-home"
-
-    services_setup_resolve_current_user() {
-        printf 'tester\n'
-    }
-
-    services_setup_getent_passwd_entry() {
-        return 1
-    }
-
-    run services_setup_resolve_current_home
-    assert_failure
-    assert_output ""
 }
 
 @test "remaining helpers: resolve_current_home prefers passwd home over mismatched absolute HOME" {
@@ -7302,42 +6234,6 @@ EOF
                     local name="${1:-}"
                     [[ -n "$name" ]] || return 1
                     echo "$preflight_bin_dir/$name"
-                }
-                ;;
-            services-setup)
-                local services_bin_dir="$BATS_TEST_TMPDIR/services-setup-bin"
-                mkdir -p "$services_bin_dir"
-                cat > "$services_bin_dir/id" <<EOF
-#!/usr/bin/env bash
-if [[ "\${1:-}" == "-un" ]]; then
-    printf '%s\n' "$current_user"
-    exit 0
-fi
-exit 2
-EOF
-                cat > "$services_bin_dir/whoami" <<EOF
-#!/usr/bin/env bash
-printf '%s\n' "$current_user"
-EOF
-                cat > "$services_bin_dir/getent" <<EOF
-#!/usr/bin/env bash
-if [[ "\${1:-}" == "passwd" ]] && [[ "\${2:-}" == "$current_user" ]]; then
-    printf '%s:x:1000:1000::%s:/bin/bash\n' "$current_user" "$passwd_home"
-    exit 0
-fi
-exit 2
-EOF
-                chmod +x "$services_bin_dir/id" "$services_bin_dir/whoami" "$services_bin_dir/getent"
-                eval "$(sed -n '/^services_setup_sanitize_abs_nonroot_path()/,/^}$/p' "$script")"
-                eval "$(sed -n '/^services_setup_system_binary_path()/,/^}$/p' "$script")"
-                eval "$(sed -n '/^services_setup_resolve_current_user()/,/^}$/p' "$script")"
-                eval "$(sed -n '/^services_setup_getent_passwd_entry()/,/^}$/p' "$script")"
-                eval "$(sed -n '/^services_setup_passwd_home_from_entry()/,/^}$/p' "$script")"
-                eval "$(sed -n '/^services_setup_resolve_current_home()/,/^}$/p' "$script")"
-                services_setup_system_binary_path() {
-                    local name="${1:-}"
-                    [[ -n "$name" ]] || return 1
-                    printf '%s/%s\n' "$services_bin_dir" "$name"
                 }
                 ;;
             notifications)
@@ -7639,7 +6535,6 @@ EOF
         fi
     done <<EOF
 preflight|$PROJECT_ROOT/scripts/preflight.sh|resolve_current_home
-services-setup|$PROJECT_ROOT/scripts/services-setup.sh|services_setup_resolve_current_home
 notifications|$PROJECT_ROOT/scripts/lib/notifications.sh|notifications_resolve_current_home
 notify|$PROJECT_ROOT/scripts/lib/notify.sh|_gtbi_notify_resolve_current_home
 webhook|$PROJECT_ROOT/scripts/lib/webhook.sh|webhook_resolve_current_home
@@ -8045,27 +6940,6 @@ EOF
     assert_failure
     assert_output --partial "Invalid TARGET_HOME for 'missinguser': <empty>"
     [[ ! -s "$STUB_DIR/sudo.log" ]] || fail "_lang_run_as_user should not invoke sudo for unresolved TARGET_HOME"
-
-    source_lib "cloud_db"
-    : > "$STUB_DIR/sudo.log"
-    run _cloud_run_as_user env
-    assert_failure
-    assert_output --partial "Invalid TARGET_HOME for 'missinguser': <empty>"
-    [[ ! -s "$STUB_DIR/sudo.log" ]] || fail "_cloud_run_as_user should not invoke sudo for unresolved TARGET_HOME"
-
-    source_lib "stack"
-    : > "$STUB_DIR/sudo.log"
-    run _stack_run_as_user env
-    assert_failure
-    assert_output --partial "Invalid TARGET_HOME for 'missinguser': <empty>"
-    [[ ! -s "$STUB_DIR/sudo.log" ]] || fail "_stack_run_as_user should not invoke sudo for unresolved TARGET_HOME"
-}
-
-@test "cloud_db username validation accepts dotted target usernames" {
-    source_lib "cloud_db"
-
-    run _cloud_validate_username "john.doe"
-    assert_success
 }
 
 @test "github_api runtime home ignores stale TARGET_HOME and falls back to existing HOME" {
@@ -8167,57 +7041,6 @@ EOF
     assert_output --partial "HOME=$target_home"
     assert_output --partial "UPDATE_LOG_DIR=$target_home/.gtbi/logs/updates"
     assert_output --partial "CHECKSUMS_LOCAL=$target_home/.gtbi/checksums.yaml"
-}
-
-@test "configure_gemini_settings repairs stale agent mail url after migration" {
-    source_lib "agents"
-
-    local target_home="$BATS_TEST_TMPDIR/target-home"
-    local settings_dir="$target_home/.gemini"
-    local settings_file="$settings_dir/settings.json"
-    local target_am="$target_home/mcp_agent_mail/am"
-    mkdir -p "$settings_dir" "$(dirname "$target_am")"
-
-    cat > "$target_am" <<'EOF'
-#!/usr/bin/env bash
-printf 'am 0.2.39\n'
-EOF
-    chmod +x "$target_am"
-
-    cat > "$settings_file" <<'EOF'
-{
-  "selectedType": "gemini-api-key",
-  "tools": {
-    "shell": {
-      "enableInteractiveShell": true
-    }
-  },
-  "mcpServers": {
-    "mcp-agent-mail": {
-      "httpUrl": "http://127.0.0.1:8765/api/"
-    }
-  }
-}
-EOF
-
-    _agent_run_as_user() {
-        bash -c "$1"
-    }
-
-    run _configure_gemini_settings "$target_home"
-    assert_success
-
-    run jq -r '.selectedType' "$settings_file"
-    assert_success
-    assert_output 'oauth-personal'
-
-    run jq -r '.tools.shell.enableInteractiveShell' "$settings_file"
-    assert_success
-    assert_output 'false'
-
-    run jq -r '.mcpServers."mcp-agent-mail".httpUrl' "$settings_file"
-    assert_success
-    assert_output 'http://127.0.0.1:8765/mcp/'
 }
 
 @test "configure_gemini_settings ignores PATH-poisoned jq" {
@@ -8325,7 +7148,6 @@ EOF
         'install_asset "scripts/lib/dashboard.sh" "$GTBI_HOME/scripts/lib/dashboard.sh"'
         'install_asset "scripts/lib/support.sh" "$GTBI_HOME/scripts/lib/support.sh"'
         'install_asset "scripts/generate-root-agents-md.sh" "$GTBI_HOME/bin/flywheel-update-agents-md"'
-        'install_asset "scripts/services-setup.sh" "$GTBI_HOME/scripts/services-setup.sh"'
         'install_asset "scripts/lib/newproj.sh" "$GTBI_HOME/scripts/lib/newproj.sh"'
         'install_asset "scripts/lib/newproj_agents.sh" "$GTBI_HOME/scripts/lib/newproj_agents.sh"'
         'install_asset "scripts/lib/newproj_detect.sh" "$GTBI_HOME/scripts/lib/newproj_detect.sh"'
@@ -8369,7 +7191,6 @@ EOF
         '"scripts/lib/notifications.sh:scripts/lib/notifications.sh"'
         '"scripts/lib/dashboard.sh:scripts/lib/dashboard.sh"'
         '"scripts/lib/support.sh:scripts/lib/support.sh"'
-        '"scripts/services-setup.sh:scripts/services-setup.sh"'
         '"scripts/lib/newproj.sh:scripts/lib/newproj.sh"'
         '"scripts/lib/newproj_agents.sh:scripts/lib/newproj_agents.sh"'
         '"scripts/lib/newproj_detect.sh:scripts/lib/newproj_detect.sh"'
@@ -8400,7 +7221,7 @@ EOF
 
     run grep -F '"/data/projects/gastown_batteries_included/scripts/lib/stack.sh"' "$update"
     assert_success
-    run grep -F 'bin/gtbi|bin/gtbi-update|bin/flywheel-update-agents-md|onboard/onboard.sh|scripts/generated/*.sh|scripts/lib/*.sh|scripts/nightly-update.sh|scripts/services-setup.sh)' "$update"
+    run grep -F 'bin/gtbi|bin/gtbi-update|bin/flywheel-update-agents-md|onboard/onboard.sh|scripts/generated/*.sh|scripts/lib/*.sh|scripts/nightly-update.sh)' "$update"
     assert_success
     run grep -F 'for generated_script in "$GTBI_REPO_ROOT/scripts/generated/"*.sh; do' "$update"
     assert_success
@@ -9621,27 +8442,6 @@ EOF
     assert_failure
 }
 
-@test "install.sh: DCG hook installer passes target paths as argv/env data" {
-    local installer="$PROJECT_ROOT/install.sh"
-    local try_step_line="try_step \"Installing DCG hook\" \\"
-    local env_line="env \"TARGET_USER=\$TARGET_USER\" \"TARGET_HOME=\$TARGET_HOME\" \\"
-
-    run grep -F "$try_step_line" "$installer"
-    assert_success
-
-    run grep -F "$env_line" "$installer"
-    assert_success
-
-    run grep -F '"$GTBI_HOME/scripts/services-setup.sh" --install-claude-guard --yes' "$installer"
-    assert_success
-
-    run grep -F 'try_step_eval "Installing DCG hook"' "$installer"
-    assert_failure
-
-    run grep -F "TARGET_USER='\$TARGET_USER' TARGET_HOME='\$TARGET_HOME'" "$installer"
-    assert_failure
-}
-
 @test "install.sh: resolves target user and shell via trusted helpers" {
     local installer="$PROJECT_ROOT/install.sh"
 
@@ -10189,7 +8989,6 @@ EOF
 
 @test "shell auth helpers reject placeholder tokens" {
     local doctor_lib="$PROJECT_ROOT/scripts/lib/doctor.sh"
-    local services_setup="$PROJECT_ROOT/scripts/services-setup.sh"
     local agents_lib="$PROJECT_ROOT/scripts/lib/agents.sh"
     local auth_file="$BATS_TEST_TMPDIR/auth.json"
     local env_file="$BATS_TEST_TMPDIR/auth.env"
@@ -10249,20 +9048,6 @@ EOF
   "token": "real-token"
 }
 JSON
-    run json_file_has_usable_string_key "$auth_file" "token"
-    assert_success
-
-    # shellcheck disable=SC1090
-    eval "$(sed -n '/^services_setup_normalize_config_value()/,/^}$/p' "$services_setup")"
-    # shellcheck disable=SC1090
-    eval "$(sed -n '/^services_setup_is_placeholder_secret()/,/^}$/p' "$services_setup")"
-    # shellcheck disable=SC1090
-    eval "$(sed -n '/^services_setup_has_usable_secret()/,/^}$/p' "$services_setup")"
-    # shellcheck disable=SC1090
-    eval "$(sed -n '/^json_file_has_usable_string_key()/,/^}$/p' "$services_setup")"
-
-    run services_setup_has_usable_secret "your_vercel_token"
-    assert_failure
     run json_file_has_usable_string_key "$auth_file" "token"
     assert_success
 
@@ -10443,365 +9228,6 @@ EOF
     assert_success
 }
 
-@test "stack hook checks do not accept raw settings text matches" {
-    grep -q "_stack_claude_settings_has_command_hook()" "$PROJECT_ROOT/scripts/lib/stack.sh"
-    grep -q "claude_settings_has_command_hook()" "$PROJECT_ROOT/scripts/services-setup.sh"
-
-    run grep -q 'grep -q "claude-post-compact-reminder"' "$PROJECT_ROOT/scripts/lib/stack.sh"
-    assert_failure
-
-    run grep -q 'grep -q "dcg"' "$PROJECT_ROOT/scripts/services-setup.sh"
-    assert_failure
-
-    run grep -q 'grep -q "dcg" "\$settings"' "$PROJECT_ROOT/scripts/generated/install_stack.sh"
-    assert_failure
-
-    run grep -q 'grep -q "claude-post-compact-reminder" "\$settings"' "$PROJECT_ROOT/scripts/generated/install_stack.sh"
-    assert_failure
-}
-
-@test "stack hook parsers use trusted jq resolver" {
-    local stack_lib="$PROJECT_ROOT/scripts/lib/stack.sh"
-    local services_setup="$PROJECT_ROOT/scripts/services-setup.sh"
-    local generated_stack="$PROJECT_ROOT/scripts/generated/install_stack.sh"
-    local settings_file
-    local fake_bin
-    local marker
-    local system_jq=""
-    local candidate
-
-    for candidate in /usr/bin/jq /bin/jq /usr/local/bin/jq /usr/local/sbin/jq /usr/sbin/jq /sbin/jq; do
-        if [[ -x "$candidate" ]]; then
-            system_jq="$candidate"
-            break
-        fi
-    done
-    [[ -n "$system_jq" ]] || skip "system jq required for hook parser trust test"
-
-    run grep -F 'command -v jq >/dev/null 2>&1 || return 1' "$stack_lib" "$services_setup" "$generated_stack"
-    assert_failure
-    run grep -F 'jq -e --arg pattern' "$stack_lib" "$services_setup" "$generated_stack"
-    assert_failure
-
-    settings_file="$BATS_TEST_TMPDIR/claude-settings.json"
-    fake_bin="$BATS_TEST_TMPDIR/fake-jq-bin"
-    marker="$BATS_TEST_TMPDIR/fake-jq-used"
-    mkdir -p "$fake_bin"
-    cat > "$fake_bin/jq" <<EOF
-#!/usr/bin/env bash
-: > "$marker"
-exit 0
-EOF
-    chmod +x "$fake_bin/jq"
-    cat > "$settings_file" <<'EOF'
-{
-  "notes": "dcg appears only in non-hook text",
-  "hooks": {
-    "PreToolUse": []
-  }
-}
-EOF
-
-    run env PATH="$fake_bin:/usr/bin:/bin" bash -s -- "$stack_lib" "$services_setup" "$settings_file" "$marker" <<'EOF_HOOK_PARSERS_TRUSTED_JQ'
-stack_lib="$1"
-services_setup="$2"
-settings_file="$3"
-marker="$4"
-pattern='(^|[[:space:]/])dcg([[:space:]]|$)'
-
-# shellcheck source=/dev/null
-source "$stack_lib"
-# shellcheck source=/dev/null
-source "$services_setup"
-set -euo pipefail
-! _stack_claude_settings_has_command_hook "$settings_file" "$pattern"
-! claude_settings_has_command_hook "$settings_file" "$pattern"
-[[ ! -e "$marker" ]]
-EOF_HOOK_PARSERS_TRUSTED_JQ
-    assert_success
-}
-
-@test "services-setup DCG hook cleanup ignores PATH-poisoned core helpers" {
-    local services_setup="$PROJECT_ROOT/scripts/services-setup.sh"
-    local target_home
-    local settings_file
-    local fake_bin
-    local marker
-    local system_jq=""
-    local candidate
-    local helper
-
-    for candidate in /usr/bin/jq /bin/jq /usr/local/bin/jq /usr/local/sbin/jq /usr/sbin/jq /sbin/jq; do
-        if [[ -x "$candidate" ]]; then
-            system_jq="$candidate"
-            break
-        fi
-    done
-    [[ -n "$system_jq" ]] || skip "system jq required for DCG cleanup trust test"
-
-    target_home="$BATS_TEST_TMPDIR/services-setup-dcg-home"
-    settings_file="$target_home/.claude/settings.json"
-    fake_bin="$BATS_TEST_TMPDIR/services-setup-poison-bin"
-    marker="$BATS_TEST_TMPDIR/services-setup-poison-used"
-    mkdir -p "$target_home/.claude" "$target_home/.local/bin" "$fake_bin"
-
-    for helper in dirname mktemp tee mv rm; do
-        cat > "$fake_bin/$helper" <<EOF
-#!/usr/bin/env bash
-printf '%s\n' "$helper" > "$marker"
-exit 99
-EOF
-        chmod +x "$fake_bin/$helper"
-    done
-
-    cat > "$settings_file" <<'EOF'
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "dcg guard --source claude"
-          },
-          {
-            "type": "command",
-            "command": "echo keep"
-          }
-        ]
-      }
-    ]
-  }
-}
-EOF
-
-    run env PATH="$fake_bin:/usr/bin:/bin" bash -s -- \
-        "$services_setup" "$target_home" "$settings_file" "$marker" "$system_jq" <<'EOF_DCG_CLEANUP_TRUSTED_HELPERS'
-set -euo pipefail
-
-services_setup="$1"
-target_home="$2"
-settings_file="$3"
-marker="$4"
-system_jq="$5"
-
-# shellcheck disable=SC1090
-eval "$(sed -n '/^services_setup_sanitize_abs_nonroot_path()/,/^}$/p' "$services_setup")"
-# shellcheck disable=SC1090
-eval "$(sed -n '/^services_setup_valid_target_user()/,/^}$/p' "$services_setup")"
-# shellcheck disable=SC1090
-eval "$(sed -n '/^services_setup_validate_target_user()/,/^}$/p' "$services_setup")"
-# shellcheck disable=SC1090
-eval "$(sed -n '/^services_setup_system_binary_path()/,/^}$/p' "$services_setup")"
-# shellcheck disable=SC1090
-eval "$(sed -n '/^services_setup_getent_passwd_entry()/,/^}$/p' "$services_setup")"
-# shellcheck disable=SC1090
-eval "$(sed -n '/^services_setup_validate_bin_dir_for_home()/,/^}$/p' "$services_setup")"
-# shellcheck disable=SC1090
-eval "$(sed -n '/^services_setup_resolve_current_user()/,/^}$/p' "$services_setup")"
-# shellcheck disable=SC1090
-eval "$(sed -n '/^run_as_user()/,/^}$/p' "$services_setup")"
-# shellcheck disable=SC1090
-eval "$(sed -n '/^remove_dcg_hook_from_settings()/,/^}$/p' "$services_setup")"
-
-log_error() {
-    printf '%s\n' "$*" >&2
-}
-gum_warn() {
-    printf '%s\n' "$*" >&2
-}
-gum_detail() {
-    printf '%s\n' "$*" >&2
-}
-
-cat() {
-    printf '%s\n' "cat" > "$marker"
-    return 99
-}
-dirname() {
-    printf '%s\n' "dirname" > "$marker"
-    return 99
-}
-rm() {
-    printf '%s\n' "rm" > "$marker"
-    return 99
-}
-
-export TARGET_USER
-TARGET_USER="$(id -un)"
-export TARGET_HOME="$target_home"
-export HOME="$target_home"
-export GTBI_BIN_DIR="$target_home/.local/bin"
-
-remove_dcg_hook_from_settings "$settings_file"
-[[ ! -e "$marker" ]]
-"$system_jq" -e '(.hooks.PreToolUse | length == 1) and (.hooks.PreToolUse[0].hooks | length == 1) and (.hooks.PreToolUse[0].hooks[0].command == "echo keep")' "$settings_file" >/dev/null
-EOF_DCG_CLEANUP_TRUSTED_HELPERS
-    assert_success
-}
-
-@test "services-setup DCG pack config ignores PATH-poisoned core helpers" {
-    local services_setup="$PROJECT_ROOT/scripts/services-setup.sh"
-    local target_home
-    local fake_bin
-    local marker
-    local helper
-
-    target_home="$BATS_TEST_TMPDIR/services-setup-dcg-config-home"
-    fake_bin="$BATS_TEST_TMPDIR/services-setup-dcg-config-poison-bin"
-    marker="$BATS_TEST_TMPDIR/services-setup-dcg-config-poison-used"
-    mkdir -p "$target_home/.local/bin" "$fake_bin"
-
-    cat > "$target_home/.local/bin/dcg" <<'EOF'
-#!/usr/bin/env bash
-exit 0
-EOF
-    chmod +x "$target_home/.local/bin/dcg"
-
-    for helper in mkdir tee; do
-        cat > "$fake_bin/$helper" <<EOF
-#!/usr/bin/env bash
-printf '%s\n' "$helper" > "$marker"
-exit 99
-EOF
-        chmod +x "$fake_bin/$helper"
-    done
-
-    run env PATH="$fake_bin:/usr/bin:/bin" bash -s -- \
-        "$services_setup" "$target_home" "$marker" <<'EOF_DCG_CONFIG_TRUSTED_HELPERS'
-set -euo pipefail
-
-services_setup="$1"
-target_home="$2"
-marker="$3"
-
-# shellcheck disable=SC1090
-eval "$(sed -n '/^services_setup_sanitize_abs_nonroot_path()/,/^}$/p' "$services_setup")"
-# shellcheck disable=SC1090
-eval "$(sed -n '/^services_setup_valid_target_user()/,/^}$/p' "$services_setup")"
-# shellcheck disable=SC1090
-eval "$(sed -n '/^services_setup_validate_target_user()/,/^}$/p' "$services_setup")"
-# shellcheck disable=SC1090
-eval "$(sed -n '/^services_setup_system_binary_path()/,/^}$/p' "$services_setup")"
-# shellcheck disable=SC1090
-eval "$(sed -n '/^services_setup_getent_passwd_entry()/,/^}$/p' "$services_setup")"
-# shellcheck disable=SC1090
-eval "$(sed -n '/^services_setup_validate_bin_dir_for_home()/,/^}$/p' "$services_setup")"
-# shellcheck disable=SC1090
-eval "$(sed -n '/^services_setup_resolve_current_user()/,/^}$/p' "$services_setup")"
-# shellcheck disable=SC1090
-eval "$(sed -n '/^run_as_user()/,/^}$/p' "$services_setup")"
-# shellcheck disable=SC1090
-eval "$(sed -n '/^configure_dcg()/,/^}$/p' "$services_setup")"
-
-log_error() {
-    printf '%s\n' "$*" >&2
-}
-gum_box() {
-    :
-}
-gum_confirm() {
-    return 0
-}
-gum_detail() {
-    printf '%s\n' "$*" >&2
-}
-gum_error() {
-    printf '%s\n' "$*" >&2
-}
-gum_success() {
-    printf '%s\n' "$*" >&2
-}
-gum_warn() {
-    printf '%s\n' "$*" >&2
-}
-
-cleanup_stale_dcg_hook() {
-    :
-}
-dcg_hook_registered() {
-    return 1
-}
-find_user_bin() {
-    case "${1:-}" in
-        dcg) printf '%s\n' "$target_home/.local/bin/dcg" ;;
-        *) return 1 ;;
-    esac
-}
-select_dcg_packs() {
-    printf '%s\n' "database cloud"
-}
-user_command_exists() {
-    return 1
-}
-
-export TARGET_USER
-TARGET_USER="$(id -un)"
-export TARGET_HOME="$target_home"
-export HOME="$target_home"
-export GTBI_BIN_DIR="$target_home/.local/bin"
-export SERVICES_SETUP_NONINTERACTIVE="false"
-
-configure_dcg
-[[ ! -e "$marker" ]]
-grep -F '    "database",' "$target_home/.config/dcg/config.toml" >/dev/null
-grep -F '    "cloud",' "$target_home/.config/dcg/config.toml" >/dev/null
-EOF_DCG_CONFIG_TRUSTED_HELPERS
-    assert_success
-}
-
-@test "legacy stack RCH installer keeps daemon and fleet setup active" {
-    run grep -F '_stack_run_installer "$tool" --easy-mode' "$PROJECT_ROOT/scripts/lib/stack.sh"
-    assert_success
-}
-
-@test "stack FrankenSearch release resolution ignores shell function curl" {
-    local stack_lib="$PROJECT_ROOT/scripts/lib/stack.sh"
-    local curl_marker="${BATS_TEST_TMPDIR}/stack-curl-poison.marker"
-
-    # shellcheck disable=SC1090
-    source "$stack_lib"
-
-    unset GTBI_FSFS_VERSION
-    log_detail() { :; }
-    curl() {
-        : > "$curl_marker"
-        return 42
-    }
-    _stack_system_curl() {
-        case "$*" in
-            *"releases?per_page=10"*)
-                printf '%s\n' \
-                    '    "tag_name": "v1.2.5",' \
-                    '    "tag_name": "v1.2.4",'
-                ;;
-            *"v1.2.5"*.sha256*)
-                return 22
-                ;;
-            *"v1.2.4"*.sha256*)
-                printf '%s  %s\n' \
-                    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" \
-                    "fsfs-lite-1.2.4-x86_64-unknown-linux-musl.tar.xz"
-                ;;
-            *"releases/latest"*)
-                printf '%s\n' "https://github.com/Dicklesworthstone/frankensearch/releases/tag/v1.2.5"
-                ;;
-            *)
-                return 1
-                ;;
-        esac
-    }
-
-    run _stack_resolve_fsfs_artifact_contract "x86_64-unknown-linux-musl"
-
-    assert_success
-    assert_output --partial "v1.2.4"
-    assert_output --partial "https://github.com/Dicklesworthstone/frankensearch/releases/download/v1.2.4/fsfs-lite-1.2.4-x86_64-unknown-linux-musl.tar.xz"
-    assert_output --partial "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-    [[ ! -e "$curl_marker" ]]
-}
-
 @test "status update check uses system curl helper" {
     local status_lib="$PROJECT_ROOT/scripts/lib/status.sh"
 
@@ -10818,52 +9244,6 @@ EOF_DCG_CONFIG_TRUSTED_HELPERS
     assert_failure
 
     run rg -n '(^|[[:space:]])curl[[:space:]]+-fsSL' "$status_lib"
-    assert_failure
-}
-
-@test "stack verified installer command quotes inline env assignment values" {
-    local stack_lib="$PROJECT_ROOT/scripts/lib/stack.sh"
-
-    # shellcheck disable=SC1090
-    eval "$(sed -n '/^_stack_run_verified_installer_with_env()/,/^}$/p' "$stack_lib")"
-
-    declare -gA KNOWN_INSTALLERS=([test_tool]="https://example.test/install.sh")
-    _stack_require_security() { return 0; }
-    get_checksum() { printf '%s\n' "abc123"; }
-    log_warn() { printf '%s\n' "$*" >&2; }
-    _stack_run_as_user() { printf '%s\n' "$1"; }
-    STACK_SCRIPT_DIR="/tmp/gtbi stack's dir"
-
-    run _stack_run_verified_installer_with_env "test_tool" "TEST_ENV=ok;touch /tmp/gtbi-pwned" "--flag"
-    assert_success
-    assert_output --partial "TEST_ENV=ok\\;touch\\ /tmp/gtbi-pwned"
-    refute_output --partial "TEST_ENV=ok;touch /tmp/gtbi-pwned"
-    assert_output --partial "set -o pipefail; source /tmp/gtbi\\ stack\\'s\\ dir/security.sh"
-    assert_output --partial "bash -s -- --flag"
-}
-
-@test "stack verified installer command fails when checksum verifier fails" {
-    local stack_lib="$PROJECT_ROOT/scripts/lib/stack.sh"
-    local security_dir="$BATS_TEST_TMPDIR/stack-security"
-
-    # shellcheck disable=SC1090
-    eval "$(sed -n '/^_stack_run_verified_installer_with_env()/,/^}$/p' "$stack_lib")"
-
-    mkdir -p "$security_dir"
-    cat > "$security_dir/security.sh" <<'SECURITY'
-verify_checksum() {
-    return 1
-}
-SECURITY
-
-    declare -gA KNOWN_INSTALLERS=([test_tool]="https://example.test/install.sh")
-    _stack_require_security() { return 0; }
-    get_checksum() { printf '%s\n' "abc123"; }
-    log_warn() { printf '%s\n' "$*" >&2; }
-    _stack_run_as_user() { bash -c "$1"; }
-    STACK_SCRIPT_DIR="$security_dir"
-
-    run _stack_run_verified_installer_with_env "test_tool" "" "--flag"
     assert_failure
 }
 
@@ -11301,8 +9681,6 @@ EOF
     local agents_lib="$PROJECT_ROOT/scripts/lib/agents.sh"
     local languages_lib="$PROJECT_ROOT/scripts/lib/languages.sh"
     local cli_tools_lib="$PROJECT_ROOT/scripts/lib/cli_tools.sh"
-    local cloud_db_lib="$PROJECT_ROOT/scripts/lib/cloud_db.sh"
-    local stack_lib="$PROJECT_ROOT/scripts/lib/stack.sh"
 
     run grep -F "_agent_run_as_user \"mkdir -p '\$target_home/.local/bin'\"" "$agents_lib"
     assert_failure
@@ -11321,21 +9699,11 @@ EOF
     run grep -F "_cli_run_as_user \"\$cargo_bin install" "$cli_tools_lib"
     assert_failure
 
-    run grep -F "_cloud_run_as_user \"\\\"\$bun_bin\\\" install -g \$cli@latest\"" "$cloud_db_lib"
-    assert_failure
-
-    run grep -F "_stack_run_as_user \"mkdir -p '\$dir'" "$stack_lib"
-    assert_failure
-
     run grep -F "printf -v wrapper_path_q '%q' \"\$wrapper_path\"" "$agents_lib"
     assert_success
     run grep -F "printf -v security_lib_q '%q' \"\$LANG_SCRIPT_DIR/security.sh\"" "$languages_lib"
     assert_success
     run grep -F "printf -v security_lib_q '%q' \"\$CLI_TOOLS_SCRIPT_DIR/security.sh\"" "$cli_tools_lib"
-    assert_success
-    run grep -F "printf -v cli_package_q '%q' \"\$cli@latest\"" "$cloud_db_lib"
-    assert_success
-    run grep -F "printf -v am_dest_q '%q' \"\$dir/am\"" "$stack_lib"
     assert_success
 }
 
@@ -11357,9 +9725,6 @@ EOF
     assert_success
 
     run grep -F 'gtbi_smoke_install_fix_command gtbi.onboard' "$installer"
-    assert_success
-
-    run grep -F 'gtbi_smoke_install_fix_command stack.mcp_agent_mail' "$installer"
     assert_success
 
     run grep -F -- '--force-reinstall --only stack.ntm' "$smoke_lib"
