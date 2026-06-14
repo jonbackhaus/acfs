@@ -273,6 +273,47 @@ _generate_random_password() {
     return 1
 }
 
+# Ensure the target user's home directory exists and is owned by the user.
+#
+# `useradd -m` does NOT change ownership of a home that already exists, and on
+# fresh cloud images /home/<user> can pre-exist root-owned (the image's user was
+# removed without -r). In that case the (re)created user cannot write its own
+# home, so target_user phases (e.g. oh-my-zsh) fail with "Permission denied".
+#
+# Idempotent: a re-assert on an already-correct home is effectively a no-op.
+# chown failures are logged and tolerated, but the home dir itself must end up
+# owned by the target.
+user_ensure_home_owned() {
+    local target="${1:-}"
+    local home=""
+
+    user_valid_target_name "$target" || {
+        log_warn "user_ensure_home_owned: invalid target user '${target:-<empty>}'"
+        return 1
+    }
+
+    home="$(user_home_for_user "$target" 2>/dev/null || true)"
+    # Guard: must be an absolute, non-root path before we mkdir/chown it.
+    if [[ -z "$home" || "$home" != /* || "$home" == "/" ]]; then
+        log_warn "user_ensure_home_owned: unsafe or unresolved home '${home:-<empty>}' for '$target'; skipping"
+        return 1
+    fi
+
+    if [[ ! -d "$home" ]]; then
+        $SUDO mkdir -p "$home"
+    fi
+
+    # Recursive: a pre-existing home may hold root-owned skel/dotfiles that the
+    # user also needs to write. $home is validated absolute/non-root above, so
+    # chown -R is safe here. Tolerate partial failures but ensure the dir itself
+    # is owned by the target.
+    if ! $SUDO chown -R "$target:$target" "$home" 2>/dev/null; then
+        log_warn "Could not fully chown $home to $target; retrying home dir only"
+        $SUDO chown "$target:$target" "$home" 2>/dev/null || \
+            log_warn "Failed to chown $home to $target"
+    fi
+}
+
 # Ensure target user exists
 # Creates user if missing, adds to required groups
 ensure_user() {
@@ -310,6 +351,11 @@ ensure_user() {
     else
         log_detail "User $target already exists"
     fi
+
+    # Guarantee the home dir exists and is owned by the target. Covers both the
+    # useradd branch (where -m skips chown on a pre-existing home) and the
+    # already-exists branch. Without this, target_user phases can't write $HOME.
+    user_ensure_home_owned "$target"
 
     # Ensure user is in required groups
     $SUDO usermod -aG sudo "$target" 2>/dev/null || true
