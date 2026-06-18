@@ -10,7 +10,7 @@
     },
     "packages/manifest": {
       "name": "@gtbi/manifest",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "dependencies": {
         "yaml": "^2.8.2",
         "zod": "^4.3.6",

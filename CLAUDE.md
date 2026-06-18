@@ -144,8 +144,9 @@ bun run --cwd packages/manifest generate
 1. `VERSION` — read by the generator
 2. `install.sh` — `GTBI_VERSION=` hardcoded (can't read from file when curl-piped)
 3. `package.json`, `packages/manifest/package.json` — npm workspace versions
-4. Run `bun run generate` — regenerates scripts in `scripts/generated/`
-5. Comment in `scripts/lib/update.sh` (line ~224) — example in comment only
+4. `bun.lock` — run `bun install` so the lockfile's workspace `version` matches package.json (a stale lockfile makes every CI `bun install` dirty the tree)
+5. Run `bun run generate` — regenerates scripts in `scripts/generated/`
+6. Comment in `scripts/lib/update.sh` (line ~224) — example in comment only
 
 After merging to main: `git tag v<version> && git push --tags`, then `gh release create`.
 
