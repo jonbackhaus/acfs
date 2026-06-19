@@ -1,0 +1,32 @@
+name: Verify Bot PAT Push
+
+# One-shot, manually dispatched check that GTBI_BOT_PAT can push directly to the
+# protected main branch (bypassing the required "CI Gate" check via the owner's
+# admin status, enforce_admins=false). The verification commit removes this
+# workflow, so a successful run cleans up after itself. Delete via PR if the run
+# fails (which would mean the PAT cannot bypass).
+
+on:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout with bot PAT
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GTBI_BOT_PAT || secrets.GITHUB_TOKEN }}
+          persist-credentials: true
+
+      - name: Push self-removing verification commit to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/verify-bot-pat.yml
+          git commit -m "ci: verify GTBI_BOT_PAT can push to protected main (self-removing)"
+          git pull --rebase --autostash origin main
+          git push origin HEAD:main
+          echo "✅ GTBI_BOT_PAT pushed to protected main successfully"
