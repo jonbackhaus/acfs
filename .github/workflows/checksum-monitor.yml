@@ -2,7 +2,7 @@ name: Auto-Update Upstream Checksums
 
 on:
   schedule:
-    - cron: "0 6 * * *"  # Nightly at 06:00 UTC
+    - cron: "0 3 * * *"  # Nightly at 03:00 UTC — before the 04:15 strict canary, so checksums refresh before verification
   workflow_dispatch:         # Manual trigger for testing
   push:
     branches:
