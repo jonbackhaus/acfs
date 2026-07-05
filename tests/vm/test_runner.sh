@@ -37,8 +37,11 @@ log "PHASE 1: Fresh Install (mode=${TEST_MODE})"
 if bash install.sh "${INSTALL_ARGS[@]}" > "${ARTIFACTS_DIR}/install.log" 2>&1; then
     log "Install successful"
 else
-    log "Install failed! Last 50 lines:"
-    tail -n 50 "${ARTIFACTS_DIR}/install.log"
+    # The installer's ~45-line "INSTALLATION FAILED" box + resume banner would
+    # fill a 50-line tail and hide the actual failing command, so dump a wider
+    # window. The full install.log is also uploaded as a CI artifact.
+    log "Install failed! Last 300 lines (full log: install.log artifact):"
+    tail -n 300 "${ARTIFACTS_DIR}/install.log"
     fail "Install phase failed"
 fi
 
@@ -125,8 +128,8 @@ log "PHASE 3: Idempotency Check"
 if bash install.sh "${INSTALL_ARGS[@]}" > "${ARTIFACTS_DIR}/idempotency.log" 2>&1; then
     log "Idempotency run successful"
 else
-    log "Idempotency run failed! Last 50 lines:"
-    tail -n 50 "${ARTIFACTS_DIR}/idempotency.log"
+    log "Idempotency run failed! Last 300 lines (full log: idempotency.log artifact):"
+    tail -n 300 "${ARTIFACTS_DIR}/idempotency.log"
     fail "Idempotency phase failed"
 fi
 

@@ -66,7 +66,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: strict-canary-log
-          path: canary.log
+          # canary.log is the harness stdout; tests/artifacts/*.log are the full
+          # per-install logs (install.log / idempotency.log) written via the repo
+          # bind-mount, which hold the actual failing command the box truncates.
+          path: |
+            canary.log
+            tests/artifacts/*.log
+          if-no-files-found: warn
 
       - name: Open issue on checksum mismatch
         if: steps.detect.outputs.checksum_mismatch == 'true'
