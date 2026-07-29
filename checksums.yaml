@@ -1,4 +1,4 @@
-# checksums.yaml - Auto-generated 2026-07-28T05:50:16+00:00
+# checksums.yaml - Auto-generated 2026-07-29T05:55:44+00:00
 # Run: ./scripts/lib/security.sh --update-checksums
 
 installers:
@@ -40,4 +40,4 @@ installers:
 
   uv:
     url: "https://astral.sh/uv/install.sh"
-    sha256: "43aff33a967fe40e8c17949d8c85c65bc43f3b5c94742393c957f56ab5ba80f4"
+    sha256: "b67e385074fddc9b99cd152b838fd91046d9fbc261b2c45f448a983ad23b8764"
