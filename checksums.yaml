@@ -1,4 +1,4 @@
-# checksums.yaml - Auto-generated 2026-09-01T08:26:32+00:00
+# checksums.yaml - Auto-generated 2026-09-02T07:44:45+00:00
 # Run: ./scripts/lib/security.sh --update-checksums
 
 installers:
@@ -36,8 +36,8 @@ installers:
 
   rust:
     url: "https://sh.rustup.rs"
-    sha256: "6c30b75a75b28a96fd913a037c8581b580080b6ee9b8169a3c0feb1af7fe8caf"
+    sha256: "7d0ea0f8eba7fa1ebfe998091cd7ec4501e33ec5ca6b884eb4d894d7da5170af"
 
   uv:
     url: "https://astral.sh/uv/install.sh"
-    sha256: "9d360fe3d4a2c26157ecab7b44892acfe6b43e490c940ed0b29ab12e2085b1d3"
+    sha256: "222e006c0fe4a0d793031833e469b21df72311f4e3526ffecca0e19e6dfabc32"
